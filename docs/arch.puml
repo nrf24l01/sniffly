@@ -1,0 +1,36 @@
+@startuml arch
+skinparam componentStyle rectangle
+skinparam backgroundColor white
+skinparam defaultFontName Arial
+skinparam arrowColor #666666
+
+!define TECH(x) <b>x</b>
+
+package "Sniffly" {
+    [Модуль захвата] as capture #DAE8FC
+    [Модуль анализа] as analysis #DAE8FC
+    [Фронтенд] as frontend #D5E8D4
+    [Бэкенд] as backend #DAE8FC
+}
+
+package "PostgreSQL" {
+    database "База данных" as db #F8CECC
+}
+
+package "RabbitMQ" {
+    queue "Очередь сообщений" as queue #FFF2CC
+}
+
+backend --> db : Сохранение и\nзапрос данных
+capture -> queue : Отправка\nзахваченных пакетов
+analysis <- queue : Получение пакетов\nдля анализа
+frontend --> backend : HTTP API
+analysis -> db : Сохранение\nрезультатов анализа
+
+legend right
+    <b>Технологии:</b>
+    <i>Фронтенд</i>: Vue.js + tailwindcss
+    <i>Бэкенд</i>: Go + Echo
+    <i>Модули захвата и анализа</i>: Go
+endlegend
+@enduml
