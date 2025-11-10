@@ -7,24 +7,35 @@ skinparam arrowColor #666666
 !define TECH(x) <b>x</b>
 
 package "Sniffly" {
-    [Модуль захвата] as capture #DAE8FC
     [Модуль анализа] as analysis #DAE8FC
     [Фронтенд] as frontend #D5E8D4
     [Бэкенд] as backend #DAE8FC
+    [Приемник захвата] as capture_receiver #DAE8FC
+    [Nginx] as nginx #009639
 }
 
-package "PostgreSQL" {
+package "Шлюзы(устройства куда ставится захватывать)" {
+    [Модуль захвата] as capture #DAE8FC
+    [Модуль захвата 1] as capture1 #DAE8FC
+    [Модуль захвата 2] as capture2 #DAE8FC
+    [Модуль захвата 3] as capture3 #DAE8FC
+}
+
+package "Datasources" {
     database "База данных" as db #F8CECC
-}
-
-package "RabbitMQ" {
     queue "Очередь сообщений" as queue #FFF2CC
 }
 
 backend --> db : Сохранение и\nзапрос данных
-capture -> queue : Отправка\nзахваченных пакетов
+capture --> nginx : Отправка\nзахваченных пакетов
+capture1 --> nginx : Отправка\nзахваченных пакетов
+capture2 --> nginx : Отправка\nзахваченных пакето
+capture3 --> nginx : Отправка\nзахваченных пакетов
+nginx <--> capture_receiver : Передача\nзахваченных пакетов
+capture_receiver -> queue : Помещение пакетов\nв очередь на анализ
 analysis <- queue : Получение пакетов\nдля анализа
-frontend --> backend : HTTP API
+frontend --> nginx : HTTP API
+nginx <--> backend : HTTP API
 analysis -> db : Сохранение\nрезультатов анализа
 
 legend right
