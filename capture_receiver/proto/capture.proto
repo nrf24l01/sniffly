@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package capture_receiver;
+option go_package = "github.com/nrf24l01/sniffly/capture_receiver/proto;proto";
+
+message Packet {
+  string source_id = 1;     // Идентификатор клиента или сенсора
+  bytes payload = 2;        // Сырые данные пакета
+  int64 timestamp = 3;      // Unix timestamp, когда пакет был создан
+}
+
+message PublishResponse {
+  bool success = 1;
+  string message_id = 2;    // ID сообщения в RabbitMQ (или сгенерированный UUID)
+  string error = 3;         // Текст ошибки, если success == false
+}
+
+service PacketGateway {
+  rpc PublishPacket(Packet) returns (PublishResponse);
+
+  rpc StreamPackets(stream Packet) returns (stream PublishResponse);
+}
