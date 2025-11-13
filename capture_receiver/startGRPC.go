@@ -6,6 +6,7 @@ import (
 
 	"github.com/nrf24l01/sniffly/capture_receiver/core"
 	"github.com/nrf24l01/sniffly/capture_receiver/handler"
+	"github.com/nrf24l01/sniffly/capture_receiver/interceptors"
 	"google.golang.org/grpc"
 
 	pb "github.com/nrf24l01/sniffly/capture_receiver/proto"
@@ -17,7 +18,11 @@ func StartGRPCServer(cfg *core.AppConfig, packetGatewayServer *handler.PacketGat
 		log.Fatalf("failed to listen: %v", err)
 	}
 
-	server := grpc.NewServer()
+	unaryInt, streamInt := interceptors.NewAuthInterceptors(packetGatewayServer.DB)
+	server := grpc.NewServer(
+		grpc.UnaryInterceptor(unaryInt),
+		grpc.StreamInterceptor(streamInt),
+	)
 	pb.RegisterPacketGatewayServer(server, packetGatewayServer)
 
 	log.Println("gRPC server listening on :50051")
