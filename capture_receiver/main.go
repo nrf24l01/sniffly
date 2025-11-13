@@ -2,36 +2,27 @@ package main
 
 import (
 	"log"
-	"net"
+	"os"
 
+	"github.com/joho/godotenv"
 	"github.com/nrf24l01/go-web-utils/pg_kit"
 	"github.com/nrf24l01/go-web-utils/rabbitMQ"
 	"github.com/nrf24l01/sniffly/capture_receiver/core"
 	"github.com/nrf24l01/sniffly/capture_receiver/handler"
-	"google.golang.org/grpc"
-
-	pb "github.com/nrf24l01/sniffly/capture_receiver/proto"
+	"github.com/nrf24l01/sniffly/capture_receiver/postgres"
 )
 
-func StartGRPCServer(cfg *core.AppConfig, packetGatewayServer *handler.PacketGatewayServer) {
-	lis, err := net.Listen("tcp", ":50051")
-	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
-	}
-
-	server := grpc.NewServer()
-	pb.RegisterPacketGatewayServer(server, packetGatewayServer)
-
-	log.Println("gRPC server listening on :50051")
-	if err := server.Serve(lis); err != nil {
-		log.Fatalf("failed to serve: %v", err)
-	}
-}
-
 func main() {
+	if os.Getenv("PRODUCTION_ENV") != "true" {
+		err := godotenv.Load(".env")
+		if err != nil {
+			log.Fatalf("failed to load .env: %v", err)
+		}
+	}
+
 	cfg := core.BuildConfigFromEnv()
 
-	db, err := pg_kit.RegisterPostgres(cfg.PGConfig)
+	db, err := pg_kit.RegisterPostgres(cfg.PGConfig, &postgres.Capturer{})
 	if err != nil {
 		log.Fatalf("Failed to connect to Postgres: %v", err)
 	}

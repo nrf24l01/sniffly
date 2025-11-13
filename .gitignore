@@ -1,2 +1,4 @@
 out/
 capturer/capturer
+tmp
+.env
