@@ -10,6 +10,7 @@ import (
 	"github.com/nrf24l01/sniffly/capture_receiver/core"
 	"github.com/nrf24l01/sniffly/capture_receiver/handler"
 	"github.com/nrf24l01/sniffly/capture_receiver/postgres"
+	"github.com/nrf24l01/sniffly/capture_receiver/rabbit"
 )
 
 func main() {
@@ -32,10 +33,16 @@ func main() {
 		log.Fatalf("Failed to connect to RabbitMQ: %v", err)
 	}
 
+	topic := rabbit.Topic{
+		Name: cfg.CaptureConfig.PacketsTopic,
+	}
+	topic.CreateIfNotExists(rmq)
+
 	h := handler.PacketGatewayServer{
 		Config: cfg,
 		DB:     db,
 		RMQ:    rmq,
+		RMQTopic: &topic,
 	}
 
 	StartGRPCServer(cfg, &h)

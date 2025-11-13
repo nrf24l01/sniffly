@@ -15,23 +15,21 @@ type Message struct {
 	topic *Topic       `json:"-"`
 }
 
-func NewMessage(payload []byte, timestamp int64, senderUUID string, topic_name string) *Message {
-	topic := &Topic{
-		Name: topic_name,
-		created: false,
-	}
-
+func NewMessage(payload []byte, timestamp int64, senderUUID string, topic *Topic) *Message {
 	return &Message{
 		Payload:    payload,
 		Timestamp:  timestamp,
 		SenderUUID: senderUUID,
-		topic:     topic,
+		topic:      topic,
 	}
 }
 
-func (m *Message) ToRabbitMQMessage(rmq *rabbitMQ.RabbitMQ, ctx context.Context) error {
-	if err := m.topic.CreateIfNotExists(rmq); err != nil {
-		return err
+func (m *Message) ToRabbitMQMessage(rmq *rabbitMQ.RabbitMQ, ctx context.Context, check_topic bool) error {
+	
+	if check_topic {
+		if err := m.topic.CreateIfNotExists(rmq); err != nil {
+			return err
+		}
 	}
 
 	data, err := json.Marshal(m)

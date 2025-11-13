@@ -62,8 +62,8 @@ func authorize(ctx context.Context, db *gorm.DB) error {
 }
 
 func validateToken(token string, db *gorm.DB) error {
-	if err := db.Where("api_key = ?", token).First(&postgres.Capturer{}).Error; err != nil {
-		return fmt.Errorf("invalid API key: %w", err)
+	if err := db.Where("api_key = ? and enabled = true", token).First(&postgres.Capturer{}).Error; err != nil {
+		return fmt.Errorf("invalid API key")
 	}
 	return nil
 }
