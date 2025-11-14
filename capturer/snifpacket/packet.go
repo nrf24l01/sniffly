@@ -4,9 +4,11 @@ type SnifPacketType int
 
 const (
 	SnifPacketTypeHTTP SnifPacketType = iota
-	SnifPacketTypeHTTPS
+	SnifPacketTypeTLS
 	SnifPacketTypeDNS
 	SnifPacketTypeFTP
+	SnifPacketTypeTCP
+	SnifPacketTypeUDP
 )
 
 type SnifPacketDetailsHTTP struct {
@@ -17,7 +19,7 @@ type SnifPacketDetailsHTTP struct {
 	Sni        string                  `json:"sni"`
 }
 
-type SnifPacketDetailsHTTPS struct {
+type SnifPacketDetailsTLS struct {
 	Sni        string                  `json:"sni"`
 	TLSVersion string                  `json:"tls_version"`
 }
@@ -32,11 +34,21 @@ type SnifPacketDetailsFTP struct {
 	Args       string                  `json:"args"`
 }
 
+type SnifPacketDetailsTCP struct {
+	Data 	   []byte                  `json:"data"`
+}
+
+type SnifPacketDetailsUDP struct {
+	Data 	   []byte                  `json:"data"`
+}
+
 type SnifPacketDetails struct {
 	HTTP       *SnifPacketDetailsHTTP  `json:"http,omitempty"`
-	HTTPS      *SnifPacketDetailsHTTPS `json:"https,omitempty"`
+	TLS        *SnifPacketDetailsTLS   `json:"tls,omitempty"`
 	DNS        *SnifPacketDetailsDNS   `json:"dns,omitempty"`
 	FTP        *SnifPacketDetailsFTP   `json:"ftp,omitempty"`
+	TCP 	   *SnifPacketDetailsTCP   `json:"tcp,omitempty"`
+	UDP        *SnifPacketDetailsUDP   `json:"udp,omitempty"`
 	Type       SnifPacketType          `json:"type"`
 }
 
@@ -48,4 +60,5 @@ type SnifPacket struct {
 	Size       int                     `json:"size"`
 	Protocol   string                  `json:"protocol"`
 	Details    SnifPacketDetails       `json:"details"`
+	Timestamp  int64                   `json:"timestamp"`
 }
