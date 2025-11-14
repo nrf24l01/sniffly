@@ -35,7 +35,6 @@ func (s *PacketGatewayServer) StreamPackets(stream pb.PacketGateway_StreamPacket
 		if err := msg.ToRabbitMQMessage(s.RMQ, ctx, false); err != nil {
 			return fmt.Errorf("failed to publish message to RabbitMQ: %w", err)
 		}
-		log.Printf("[Stream] Packet from %s saved.", pkt.SourceId)
 
 		resp := &pb.PublishResponse{Success: true, MessageId: fmt.Sprintf("stream-%d", pkt.Timestamp)}
 		if err := stream.Send(resp); err != nil {
