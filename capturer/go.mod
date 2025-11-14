@@ -1,7 +1,15 @@
 module github.com/nrf24l01/sniffly/capturer
 
-go 1.23.0
+go 1.24.0
 
-require github.com/google/gopacket v1.1.19
+toolchain go1.24.10
 
-require golang.org/x/sys v0.0.0-20190412213103-97732733099d // indirect
+require (
+	github.com/dreadl0ck/tlsx v1.1.1
+	github.com/gopacket/gopacket v1.4.0
+)
+
+require (
+	golang.org/x/crypto v0.43.0 // indirect
+	golang.org/x/sys v0.37.0 // indirect
+)

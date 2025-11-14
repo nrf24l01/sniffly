@@ -1,11 +1,10 @@
 package main
 
 import (
-    "fmt"
-    "log"
+	"log"
 
-    "github.com/google/gopacket"
-    "github.com/google/gopacket/pcap"
+	"github.com/gopacket/gopacket"
+	"github.com/gopacket/gopacket/pcap"
 )
 
 func main() {
@@ -17,7 +16,8 @@ func main() {
     defer handle.Close()
 
     packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
+    
     for packet := range packetSource.Packets() {
-        fmt.Println(packet)
+        processPacket(packet)
     }
 }
