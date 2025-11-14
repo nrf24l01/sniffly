@@ -3,11 +3,13 @@ package main
 import (
 	"log"
 	"net"
+	"time"
 
 	"github.com/nrf24l01/sniffly/capture_receiver/core"
 	"github.com/nrf24l01/sniffly/capture_receiver/handler"
 	"github.com/nrf24l01/sniffly/capture_receiver/interceptors"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/reflection"
 
 	pb "github.com/nrf24l01/sniffly/capture_receiver/proto"
@@ -23,6 +25,13 @@ func StartGRPCServer(cfg *core.AppConfig, packetGatewayServer *handler.PacketGat
 	server := grpc.NewServer(
 		grpc.UnaryInterceptor(unaryInt),
 		grpc.StreamInterceptor(streamInt),
+		grpc.KeepaliveParams(keepalive.ServerParameters{
+			MaxConnectionIdle: 0,
+			MaxConnectionAge: 0,
+			MaxConnectionAgeGrace: 0,
+			Time: 15*time.Second,
+			Timeout: 30*time.Second,
+		}),
 	)
 	pb.RegisterPacketGatewayServer(server, packetGatewayServer)
 
