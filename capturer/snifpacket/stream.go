@@ -13,8 +13,9 @@ func ReceivePackets(handle *pcap.Handle, packets chan *SnifPacket, wg *sync.Wait
 	packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
     for packet := range packetSource.Packets() {
         packet, err := ProcessPacket(packet)
-        if err == nil {
-            packets <- packet
+        if err != nil {
+            continue
         }
+        packets <- packet
     }
 }

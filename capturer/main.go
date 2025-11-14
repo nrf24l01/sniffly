@@ -51,6 +51,7 @@ func main() {
     go grpc.StreamPackets(client, config, packets, &wg)
     wg.Add(1)
 
+    // On exit
     wg.Wait()
     fmt.Printf("Exiting...")
 }
