@@ -1,6 +1,9 @@
 # Sniffly
 *Your IoT devices traffic watcher*
----
+
+## Docs
+![arch](/docs/arch.png)
+
 ## Ci/Cd
 *Ci/Cd*
 ---

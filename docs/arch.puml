@@ -14,16 +14,17 @@ package "Sniffly" {
     [Nginx] as nginx #009639
 }
 
+package "Datasources" {
+    database "База данных(postgres)" as db #1869ff
+    database "База данных(clickhouse)" as clickhouse #fdcd47
+    queue "Очередь сообщений" as queue #FFF2CC
+}
+
 package "Шлюзы(устройства куда ставится захватывать)" {
     [Модуль захвата] as capture #DAE8FC
     [Модуль захвата 1] as capture1 #DAE8FC
     [Модуль захвата 2] as capture2 #DAE8FC
     [Модуль захвата 3] as capture3 #DAE8FC
-}
-
-package "Datasources" {
-    database "База данных" as db #F8CECC
-    queue "Очередь сообщений" as queue #FFF2CC
 }
 
 backend --> db : Сохранение и\nзапрос данных
@@ -32,11 +33,13 @@ capture1 --> nginx : Отправка\nзахваченных пакетов
 capture2 --> nginx : Отправка\nзахваченных пакето
 capture3 --> nginx : Отправка\nзахваченных пакетов
 nginx <--> capture_receiver : Передача\nзахваченных пакетов
+capture_receiver -> db : Кому можно сохранять
 capture_receiver -> queue : Помещение пакетов\nв очередь на анализ
 analysis <- queue : Получение пакетов\nдля анализа
 frontend --> nginx : HTTP API
 nginx <--> backend : HTTP API
-analysis -> db : Сохранение\nрезультатов анализа
+backend --> clickhouse : Запрос\nданных для отчетов
+analysis -> clickhouse : Сохранение\nрезультатов анализа
 
 legend right
     <b>Технологии:</b>
