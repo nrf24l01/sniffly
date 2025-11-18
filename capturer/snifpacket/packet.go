@@ -55,6 +55,8 @@ type SnifPacketDetails struct {
 type SnifPacket struct {
 	SrcIP      string                  `json:"src_ip"`
 	DstIP      string                  `json:"dst_ip"`
+	SrcMAC     string				   `json:"src_mac"`
+	DstMAC     string                  `json:"dst_mac"`
 	SrcPort    string                  `json:"src_port"`
 	DstPort    string                  `json:"dst_port"`
 	Size       int                     `json:"size"`

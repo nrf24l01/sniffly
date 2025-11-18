@@ -34,9 +34,11 @@ func ProcessPacket(packet gopacket.Packet) (*SnifPacket, error) {
 	}
 
 	snif_packet := &SnifPacket{
-		SrcIP:    srcIP.String(),
-		DstIP:    dstIP.String(),
-		Timestamp: packet.Metadata().Timestamp.Unix(),
+		SrcIP:      srcIP.String(),
+		DstIP:      dstIP.String(),
+		SrcMAC:     ethLayer.(*layers.Ethernet).SrcMAC.String(),
+		DstMAC:     ethLayer.(*layers.Ethernet).DstMAC.String(),
+		Timestamp:  packet.Metadata().Timestamp.Unix(),
 	}
 
 	// UDP → DNS?
