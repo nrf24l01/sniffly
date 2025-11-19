@@ -18,6 +18,7 @@ package "Datasources" {
     database "База данных(postgres)" as db #1869ff
     database "База данных(clickhouse)" as clickhouse #fdcd47
     queue "Очередь сообщений" as queue #FFF2CC
+    database "База кеша(redis)" as redis #ff7f27
 }
 
 package "Шлюзы(устройства куда ставится захватывать)" {
@@ -36,6 +37,7 @@ nginx <--> capture_receiver : Передача\nзахваченных паке�
 capture_receiver -> db : Кому можно сохранять
 capture_receiver -> queue : Помещение пакетов\nв очередь на анализ
 analysis <- queue : Получение пакетов\nдля анализа
+analysis <--> redis : GeoIP кеш
 frontend --> nginx : HTTP API
 nginx <--> backend : HTTP API
 backend --> clickhouse : Запрос\nданных для отчетов
