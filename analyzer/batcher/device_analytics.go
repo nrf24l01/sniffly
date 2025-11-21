@@ -2,6 +2,7 @@ package batcher
 
 import (
 	"encoding/json"
+	"log"
 
 	"github.com/nrf24l01/sniffly/analyzer/geoip"
 	"github.com/nrf24l01/sniffly/capturer/snifpacket"
@@ -55,6 +56,7 @@ func (b *Batcher) buildDeviceCountryAndCompany(batch Batch, device_id uint64) (D
 	for _, ip := range all_ips {
 		county, company, err := geoip.CityCompanyFromIP(ip, b.RDB, b.CFG.AppConfig)
 		if err != nil {
+			log.Printf("Error looking up geoip info for IP %s: %v", ip, err)
 			continue
 		}
 		found := false

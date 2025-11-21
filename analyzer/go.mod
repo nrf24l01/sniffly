@@ -6,11 +6,11 @@ require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.40.3
 	github.com/bwmarrin/snowflake v0.3.0
 	github.com/caarlos0/env/v11 v11.3.1
-	github.com/go-redis/redis/v8 v8.11.5
 	github.com/joho/godotenv v1.5.1
 	github.com/nrf24l01/go-web-utils v1.6.2
 	github.com/nrf24l01/sniffly/capture_receiver v0.0.0-20251116194204-969e62f55109
 	github.com/nrf24l01/sniffly/capturer v0.0.0-20251118083453-c083ff4c589a
+	github.com/redis/go-redis/v9 v9.16.0
 )
 
 require (
@@ -26,7 +26,6 @@ require (
 	github.com/paulmach/orb v0.11.1 // indirect
 	github.com/pierrec/lz4/v4 v4.1.22 // indirect
 	github.com/rabbitmq/amqp091-go v1.10.0 // indirect
-	github.com/redis/go-redis/v9 v9.16.0 // indirect
 	github.com/segmentio/asm v1.2.0 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
 	go.opentelemetry.io/otel v1.38.0 // indirect

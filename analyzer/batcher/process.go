@@ -31,7 +31,7 @@ func (b *Batcher) Process(ctx context.Context, batch Batch) error {
 			per_device_mac_device_id[device_id] = found_device_id
 		} else {
 			new_id := b.SnowflakeNode.Generate().Int64()
-			err := b.CHDB.CH.Exec(ctx, "INSERT INTO device_info (device_id, mac) VALUES (?, ?)", new_id, device_id)
+			err := b.CHDB.CH.Exec(ctx, "INSERT INTO device_info (device_id, mac, ip) VALUES (?, ?, ?)", new_id, device_id, per_device_mac[device_id][0].SrcIP)
 			if err != nil {
 				return err
 			}
@@ -50,6 +50,7 @@ func (b *Batcher) Process(ctx context.Context, batch Batch) error {
 
 	// Processing per device ID
 	for device_id, packets := range per_device_id {
+		log.Printf("Processing device ID %d with %d packets", device_id, len(packets))
 		chBatch, err := b.processDevicBigBatch(ctx, device_id, packets)
 		if err != nil {
 			return err
@@ -69,7 +70,6 @@ func (b *Batcher) processDevicBigBatch(ctx context.Context, device_id uint64, pa
 
 	for i, packet := range packets {
 		packet_time := time.Unix(int64(packet.Timestamp), 0)
-		log.Printf("Packet time: %s, before processing: %d", packet_time.String(), packet.Timestamp)
 		if i == 0 || packet_time.Before(first_packet_time) {
 			first_packet_time = packet_time.UTC()
 		}
@@ -101,7 +101,7 @@ func (b *Batcher) processDevicBigBatch(ctx context.Context, device_id uint64, pa
 	}
 
 	for _, packet := range packets {
-		packet_time := time.Unix(0, int64(packet.Timestamp)*int64(time.Microsecond)).UTC()
+		packet_time := time.Unix(int64(packet.Timestamp), 0).UTC()
 		for i := range batches {
 			if (packet_time.Equal(batches[i].From) || packet_time.After(batches[i].From)) && packet_time.Before(batches[i].To) {
 				batches[i].Packets = append(batches[i].Packets, packet)

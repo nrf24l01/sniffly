@@ -3,19 +3,20 @@ package geoip
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
-	redis "github.com/go-redis/redis/v8"
 	redisutil "github.com/nrf24l01/go-web-utils/redis"
 	"github.com/nrf24l01/sniffly/analyzer/core"
+	redis "github.com/redis/go-redis/v9"
 )
 
 type connection struct {
-	ASN         *string `json:"asn"`
-	ISP         *string `json:"isp"`
-	ORG 	    *string `json:"org"`
-	Domain	    *string `json:"domain"`
+	ASN         interface{} `json:"asn"`
+	ISP         *string     `json:"isp"`
+	ORG         *string     `json:"org"`
+	Domain      *string     `json:"domain"`
 }
 
 type answerPayload struct {
@@ -28,28 +29,38 @@ type answerPayload struct {
 }
 
 func CityCompanyFromIP(ip string, rdb *redisutil.RedisClient, cfg *core.AppConfig) (string, string, error) {
-	city, err := rdb.Client.Get(rdb.Ctx, cfg.GeoIPCacheKeyPrefix+ip+"-city").Result()
-	company, err := rdb.Client.Get(rdb.Ctx, cfg.GeoIPCacheKeyPrefix+ip+"-company").Result()
-	if err != nil {
-		if err == redis.Nil {
-			city, company, err := getCityCompanyFromIP(ip)
-			if err != nil {
-				return "", "", err
-			}
-			err = rdb.Client.Set(rdb.Ctx, cfg.GeoIPCacheKeyPrefix+ip+"-city", city, time.Duration(cfg.GeoIPCacheTTL)*time.Second).Err()
-			if err != nil {
-				return "",  "", err
-			}
-			err = rdb.Client.Set(rdb.Ctx, cfg.GeoIPCacheKeyPrefix+ip+"-company", company, time.Duration(cfg.GeoIPCacheTTL)*time.Second).Err()
-			if err != nil {
-				return "",  "", err
-			}
-			return city, company, nil
-		} else {
-			return "", "", err
-		}
+	cityKey := cfg.GeoIPCacheKeyPrefix + ip + "-city"
+	compKey := cfg.GeoIPCacheKeyPrefix + ip + "-company"
+
+	city, cityErr := rdb.Client.Get(rdb.Ctx, cityKey).Result()
+	company, compErr := rdb.Client.Get(rdb.Ctx, compKey).Result()
+
+	if cityErr == nil && compErr == nil {
+		return city, company, nil
 	}
-	return city, company, nil
+
+	if cityErr != nil && cityErr != redis.Nil {
+		return "", "", cityErr
+	}
+	if compErr != nil && compErr != redis.Nil {
+		return "", "", compErr
+	}
+
+	// At least one cache entry is missing -> fetch from upstream
+	log.Printf("Cache miss for IP %s: cityErr=%v compErr=%v", ip, cityErr, compErr)
+	newCity, newCompany, err := getCityCompanyFromIP(ip)
+	if err != nil {
+		return "", "", err
+	}
+
+	if err := rdb.Client.Set(rdb.Ctx, cityKey, newCity, time.Duration(cfg.GeoIPCacheTTL)*time.Second).Err(); err != nil {
+		return "", "", err
+	}
+	if err := rdb.Client.Set(rdb.Ctx, compKey, newCompany, time.Duration(cfg.GeoIPCacheTTL)*time.Second).Err(); err != nil {
+		return "", "", err
+	}
+
+	return newCity, newCompany, nil
 }
 
 func getCityCompanyFromIP(ip string) (string, string, error) {
@@ -71,23 +82,44 @@ func getCityCompanyFromIP(ip string) (string, string, error) {
 	}
 
 	if payload.Success != nil && !*payload.Success {
-		if payload.Message != nil && *payload.Message == "" {
-			return "", "", fmt.Errorf("ipwho.is lookup failed")
+		if payload.Message != nil {
+			if *payload.Message == "Reserved range" {
+				return "Local Network", "Local Network", nil
+			}
+			if *payload.Message == "" {
+				return "", "", fmt.Errorf("ipwho.is lookup failed")
+			}
+			return "", "", fmt.Errorf("ipwho.is: %s", *payload.Message)
 		}
-		return "", "", fmt.Errorf("ipwho.is: %s", *payload.Message)
+		return "", "", fmt.Errorf("ipwho.is lookup failed")
 	}
 	
 	var city, company string
 
 	if payload.Connection != nil {
-		if payload.Connection.ORG != nil {
+		company = ""
+		if payload.Connection.ORG != nil && *payload.Connection.ORG != "" {
 			company = *payload.Connection.ORG
-		} else if payload.Connection.ISP != nil {
-			company = *payload.Connection.ISP
+		}
+		if payload.Connection.ISP != nil && *payload.Connection.ISP != "" {
+			if company != "" {
+				company += " (" + *payload.Connection.ISP + ")"
+			} else {
+				company = *payload.Connection.ISP
+			}
+		}
+		if payload.Connection.Domain != nil && *payload.Connection.Domain != "" {
+			if company != "" {
+				company += " (" + *payload.Connection.Domain + ")"
+			} else {
+				company = *payload.Connection.Domain
+			}
 		}
 	}
 
-	if payload.City == nil {
+	if payload.City != nil {
+		city = *payload.City
+	} else {
 		city = ""
 	}
 

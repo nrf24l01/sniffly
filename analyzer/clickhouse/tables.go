@@ -7,8 +7,7 @@ func (c *ClickHouse) CreateTables(ctx context.Context) error {
 		CREATE TABLE IF NOT EXISTS device_info (
 			device_id UInt64,
 			mac FixedString(17),
-			ipv4 String,
-			ipv6 String,
+			ip String,
 			label String,
 			hostname String
 		)

@@ -41,15 +41,16 @@ func main() {
     }
     defer handle.Close()
 
-    // Gorutines
+    // Goroutines
     var wg sync.WaitGroup
     fmt.Printf("Starting packet capture on interface: %s to target %s\n", config.Interface, config.ServerAddress)
 
-    // Start packet processing loop
-    go snifpacket.ReceivePackets(handle, packets, &wg)
+    // Start packet processing loop (ensure wg.Add before launching goroutine)
+    wg.Add(1)
+    go snifpacket.ReceivePackets(handle, config.Interface, packets, &wg)
+
     wg.Add(1)
     go grpc.StreamPackets(client, config, packets, &wg)
-    wg.Add(1)
 
     // On exit
     wg.Wait()
