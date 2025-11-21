@@ -2,45 +2,10 @@ package batcher
 
 import (
 	"encoding/json"
-	"time"
 
+	"github.com/nrf24l01/sniffly/analyzer/geoip"
 	"github.com/nrf24l01/sniffly/capturer/snifpacket"
 )
-
-type DeviceTraffic struct {
-	DeviceID         uint64
-	Bucket           time.Time
-	UpBytes          uint64
-	ReqCount         uint64
-}
-
-type DeviceDomain struct {
-	DeviceID         uint64
-	Bucket           time.Time
-	Domain           string
-	Requests         uint64
-}
-
-type DeviceCountry struct {
-	DeviceID         uint64
-	Bucket           time.Time
-	Country          string
-	Requests         uint64
-}
-
-type DeviceProto struct {
-	DeviceID         uint64
-	Bucket           time.Time
-	Proto            string
-	Requests         uint64
-}
-
-type CHBatch struct {
-	DeviceTraffics   []DeviceTraffic
-	DeviceDomains    []DeviceDomain
-	DeviceCountries  []DeviceCountry
-	DeviceProtos     []DeviceProto
-}
 
 func buildDeviceTraffic(batch Batch, device_id uint64) (DeviceTraffic, error) {
 	var dt DeviceTraffic
@@ -75,33 +40,98 @@ func buildDeviceDomain(batch Batch, device_id uint64) (DeviceDomain, error) {
 	return dt, nil
 }
 
-func buildDeviceCountry(batch Batch, device_id uint64) (DeviceCountry, error) {
+func (b *Batcher) buildDeviceCountryAndCompany(batch Batch, device_id uint64) (DeviceCountry, error) {
+	var dc DeviceCountry
 	all_ips := make([]string, 0)
 
 	for _, b := range batch.Packets {
 		all_ips = append(all_ips, b.DstIP)
 	}
 
+	dc.Requests = uint64(len(batch.Packets))
+	dc.DeviceID = device_id
+	dc.Bucket = batch.From
 	
+	for _, ip := range all_ips {
+		county, company, err := geoip.CityCompanyFromIP(ip, b.RDB, b.CFG.AppConfig)
+		if err != nil {
+			continue
+		}
+		found := false
+		for _, c := range dc.Country {
+			if c == county {
+				found = true
+				break
+			}
+		}
+		if !found {
+			dc.Country = append(dc.Country, county)
+		}
+
+		found = false
+		for _, c := range dc.Company {
+			if c == company {
+				found = true
+				break
+			}
+		}
+		if !found {
+			dc.Company = append(dc.Company, company)
+		}
+	}
 
 	return dc, nil
+}
+
+func buildDeviceProto(batch Batch, device_id uint64) (DeviceProto, error) {
+	protos := make(map[string]uint64)
+	for _, b := range batch.Packets {
+		protos[b.Protocol] += 1
+	}
+	result, err := json.Marshal(protos)
+	if err != nil {
+		return DeviceProto{}, err
+	}
+
+	var dt DeviceProto
+	dt.DeviceID = device_id
+	dt.Proto = string(result)
+	dt.Bucket = batch.From
+	dt.Requests = uint64(len(batch.Packets))
+	return dt, nil
 }
 
 func (b *Batcher) getDevicePackets(batches []Batch, device_id uint64) (CHBatch, error) {
 	var result CHBatch
 
 	for _, batch := range batches {
+		// Build device traffic
 		traffic, err := buildDeviceTraffic(batch, device_id)
 		if err != nil {
 			return CHBatch{}, err
 		}
 		result.DeviceTraffics = append(result.DeviceTraffics, traffic)
 
+		// Build device domain
 		domain, err := buildDeviceDomain(batch, device_id)
 		if err != nil {
 			return CHBatch{}, err
 		}
 		result.DeviceDomains = append(result.DeviceDomains, domain)
+
+		// Build device country and company
+		country, err := b.buildDeviceCountryAndCompany(batch, device_id)
+		if err != nil {
+			return CHBatch{}, err
+		}
+		result.DeviceCountries = append(result.DeviceCountries, country)
+
+		// Build device proto
+		proto, err := buildDeviceProto(batch, device_id)
+		if err != nil {
+			return CHBatch{}, err
+		}
+		result.DeviceProtos = append(result.DeviceProtos, proto)
 	}
 	return result, nil
 }

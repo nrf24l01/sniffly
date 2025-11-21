@@ -41,8 +41,8 @@ func (c *ClickHouse) CreateTables(ctx context.Context) error {
 		CREATE TABLE IF NOT EXISTS device_country_5s (
 			device_id UInt32,
 			bucket DateTime,
-			company String,
-			country String,
+			companies Array(String),
+			countries Array(String),
 			requests UInt64
 		)
 		ENGINE = MergeTree

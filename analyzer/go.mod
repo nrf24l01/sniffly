@@ -6,6 +6,7 @@ require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.40.3
 	github.com/bwmarrin/snowflake v0.3.0
 	github.com/caarlos0/env/v11 v11.3.1
+	github.com/go-redis/redis/v8 v8.11.5
 	github.com/joho/godotenv v1.5.1
 	github.com/nrf24l01/go-web-utils v1.6.2
 	github.com/nrf24l01/sniffly/capture_receiver v0.0.0-20251116194204-969e62f55109

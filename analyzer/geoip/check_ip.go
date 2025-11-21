@@ -27,25 +27,29 @@ type answerPayload struct {
 	Connection  *connection `json:"connection"`
 }
 
-func CityFromIP(ip string, rdb *redisutil.RedisClient, cfg *core.AppConfig) (string, error) {
-	val, err := rdb.Client.Get(rdb.Ctx, cfg.GeoIPCacheKeyPrefix+ip).Result()
+func CityCompanyFromIP(ip string, rdb *redisutil.RedisClient, cfg *core.AppConfig) (string, string, error) {
+	city, err := rdb.Client.Get(rdb.Ctx, cfg.GeoIPCacheKeyPrefix+ip+"-city").Result()
+	company, err := rdb.Client.Get(rdb.Ctx, cfg.GeoIPCacheKeyPrefix+ip+"-company").Result()
 	if err != nil {
 		if err == redis.Nil {
-			// TODO: Fix cache !!!
 			city, company, err := getCityCompanyFromIP(ip)
 			if err != nil {
-				return "", err
+				return "", "", err
 			}
-			err = rdb.Client.Set(rdb.Ctx, cfg.GeoIPCacheKeyPrefix+ip, city, time.Duration(cfg.GeoIPCacheTTL)*time.Second).Err()
+			err = rdb.Client.Set(rdb.Ctx, cfg.GeoIPCacheKeyPrefix+ip+"-city", city, time.Duration(cfg.GeoIPCacheTTL)*time.Second).Err()
 			if err != nil {
-				return "", err
+				return "",  "", err
 			}
-			return city, nil
+			err = rdb.Client.Set(rdb.Ctx, cfg.GeoIPCacheKeyPrefix+ip+"-company", company, time.Duration(cfg.GeoIPCacheTTL)*time.Second).Err()
+			if err != nil {
+				return "",  "", err
+			}
+			return city, company, nil
 		} else {
-			return "", err
+			return "", "", err
 		}
 	}
-	return val, nil
+	return city, company, nil
 }
 
 func getCityCompanyFromIP(ip string) (string, string, error) {

@@ -45,11 +45,27 @@ func (b *Batcher) Process(ctx context.Context, batch Batch) error {
 		per_device_id[device_id] = packets
 	}
 
+	var bigBatch CHBatch
+
+	// Processing per device ID
+	for device_id, packets := range per_device_id {
+		chBatch, err := b.processDevicBigBatch(ctx, device_id, packets)
+		if err != nil {
+			return err
+		}
+		bigBatch.DeviceTraffics = append(bigBatch.DeviceTraffics, chBatch.DeviceTraffics...)
+		bigBatch.DeviceDomains = append(bigBatch.DeviceDomains, chBatch.DeviceDomains...)
+		bigBatch.DeviceCountries = append(bigBatch.DeviceCountries, chBatch.DeviceCountries...)
+		bigBatch.DeviceProtos = append(bigBatch.DeviceProtos, chBatch.DeviceProtos...)
+	}
+
+	
+
 
 	return nil
 }
 
-func (b *Batcher) processDevicBigBatch(ctx context.Context, device_id uint64, packets []snifpacket.SnifPacket) error {
+func (b *Batcher) processDevicBigBatch(ctx context.Context, device_id uint64, packets []snifpacket.SnifPacket) (CHBatch, error) {
 	var first_packet_time time.Time
 	var last_packet_time time.Time
 
@@ -95,5 +111,10 @@ func (b *Batcher) processDevicBigBatch(ctx context.Context, device_id uint64, pa
 		}
 	}
 
-	
+	chBatch, err := b.getDevicePackets(batches, device_id)
+	if err != nil {
+		return CHBatch{}, err
+	}
+
+	return chBatch, nil
 }

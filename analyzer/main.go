@@ -9,6 +9,7 @@ import (
 	"github.com/bwmarrin/snowflake"
 	"github.com/joho/godotenv"
 	"github.com/nrf24l01/go-web-utils/rabbitMQ"
+	redisutil "github.com/nrf24l01/go-web-utils/redis"
 	"github.com/nrf24l01/sniffly/analyzer/batcher"
 	"github.com/nrf24l01/sniffly/analyzer/clickhouse"
 	"github.com/nrf24l01/sniffly/analyzer/core"
@@ -41,6 +42,9 @@ func main() {
 		log.Fatalf("failed to connect to RabbitMQ: %v", err)
 	}
 
+	// Init Redis
+	rdb := redisutil.NewRedisClient(cfg.RedisConfig)
+
 	// Init snowflake
 	node, err := snowflake.NewNode(1)
 	if err != nil {
@@ -52,6 +56,7 @@ func main() {
 		CHDB: &ch,
 		CFG:  cfg,
 		SnowflakeNode: node,
+		RDB: rdb,
 	}
 
 	log.Printf("Starting analyzer batcher...")

@@ -6,6 +6,7 @@ type AnalyzerConfig struct {
 	RabbitMQConfig *config.RabbitMQConfig
 	CHConfig       *CHConfig
 	AppConfig	   *AppConfig
+	RedisConfig    *config.RedisConfig
 }
 
 
