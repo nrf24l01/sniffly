@@ -2,6 +2,7 @@ package batcher
 
 import (
 	"context"
+	"log"
 	"time"
 
 	"github.com/nrf24l01/sniffly/capturer/snifpacket"
@@ -59,10 +60,7 @@ func (b *Batcher) Process(ctx context.Context, batch Batch) error {
 		bigBatch.DeviceProtos = append(bigBatch.DeviceProtos, chBatch.DeviceProtos...)
 	}
 
-	
-
-
-	return nil
+	return bigBatch.Insert(ctx, b)
 }
 
 func (b *Batcher) processDevicBigBatch(ctx context.Context, device_id uint64, packets []snifpacket.SnifPacket) (CHBatch, error) {
@@ -70,7 +68,8 @@ func (b *Batcher) processDevicBigBatch(ctx context.Context, device_id uint64, pa
 	var last_packet_time time.Time
 
 	for i, packet := range packets {
-		packet_time := time.Unix(0, int64(packet.Timestamp)*int64(time.Microsecond))
+		packet_time := time.Unix(int64(packet.Timestamp), 0)
+		log.Printf("Packet time: %s, before processing: %d", packet_time.String(), packet.Timestamp)
 		if i == 0 || packet_time.Before(first_packet_time) {
 			first_packet_time = packet_time.UTC()
 		}

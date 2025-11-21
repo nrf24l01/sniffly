@@ -15,5 +15,6 @@ func BuildConfigFromEnv() *AnalyzerConfig {
 	cfg.RabbitMQConfig = config.LoadRabbitMQConfigFromEnv()
 	cfg.CHConfig = LoadCHConfigFromEnv()
 	cfg.AppConfig = LoadAppConfigFromEnv()
+	cfg.RedisConfig = config.LoadRedisConfigFromEnv()
 	return cfg
 }

@@ -35,7 +35,7 @@ func (c *ClickHouse) CreateTables(ctx context.Context) error {
 		)
 		ENGINE = MergeTree
 		PARTITION BY toYYYYMMDD(bucket)
-		ORDER BY (device_id, bucket, domain);
+		ORDER BY (device_id, bucket);
 	`,
 	`
 		CREATE TABLE IF NOT EXISTS device_country_5s (
@@ -46,7 +46,8 @@ func (c *ClickHouse) CreateTables(ctx context.Context) error {
 			requests UInt64
 		)
 		ENGINE = MergeTree
-		ORDER BY (device_id, bucket, country);
+		PARTITION BY toYYYYMMDD(bucket)
+		ORDER BY (device_id, bucket);
 	`,
 	`
 		CREATE TABLE IF NOT EXISTS device_proto_5s (
@@ -56,7 +57,8 @@ func (c *ClickHouse) CreateTables(ctx context.Context) error {
 			requests UInt64
 		)
 		ENGINE = MergeTree
-		ORDER BY (device_id, bucket, proto);
+		PARTITION BY toYYYYMMDD(bucket)
+		ORDER BY (device_id, bucket);
 	`}
 	
 	for _, command := range createTablesCommands {
