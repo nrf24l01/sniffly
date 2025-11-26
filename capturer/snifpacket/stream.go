@@ -35,4 +35,5 @@ func ReceivePackets(handle *pcap.Handle, iface string, packets chan *SnifPacket,
 
         packets <- sp
     }
+    log.Printf("Packet receiving goroutine for interface %s exiting", iface)
 }
