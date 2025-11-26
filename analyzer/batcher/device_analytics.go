@@ -4,11 +4,12 @@ import (
 	"encoding/json"
 	"log"
 
+	"github.com/google/uuid"
 	"github.com/nrf24l01/sniffly/analyzer/geoip"
 	"github.com/nrf24l01/sniffly/capturer/snifpacket"
 )
 
-func buildDeviceTraffic(batch Batch, device_id uint64) (DeviceTraffic, error) {
+func buildDeviceTraffic(batch Batch, device_id uuid.UUID) (DeviceTraffic, error) {
 	var dt DeviceTraffic
 	for _, b := range batch.Packets {
 		dt.Requests += 1
@@ -19,7 +20,7 @@ func buildDeviceTraffic(batch Batch, device_id uint64) (DeviceTraffic, error) {
 	return dt, nil
 }
 
-func buildDeviceDomain(batch Batch, device_id uint64) (DeviceDomain, error) {
+func buildDeviceDomain(batch Batch, device_id uuid.UUID) (DeviceDomain, error) {
 	domains := make(map[string]uint64)
 	for _, b := range batch.Packets {
 		if b.Details.Type == snifpacket.SnifPacketTypeHTTP && b.Details.HTTP != nil {
@@ -41,7 +42,7 @@ func buildDeviceDomain(batch Batch, device_id uint64) (DeviceDomain, error) {
 	return dt, nil
 }
 
-func (b *Batcher) buildDeviceCountryAndCompany(batch Batch, device_id uint64) (DeviceCountry, error) {
+func (b *Batcher) buildDeviceCountryAndCompany(batch Batch, device_id uuid.UUID) (DeviceCountry, error) {
 	var dc DeviceCountry
 	all_ips := make([]string, 0)
 
@@ -85,7 +86,7 @@ func (b *Batcher) buildDeviceCountryAndCompany(batch Batch, device_id uint64) (D
 	return dc, nil
 }
 
-func buildDeviceProto(batch Batch, device_id uint64) (DeviceProto, error) {
+func buildDeviceProto(batch Batch, device_id uuid.UUID) (DeviceProto, error) {
 	protos := make(map[string]uint64)
 	for _, b := range batch.Packets {
 		protos[b.Protocol] += 1
@@ -103,7 +104,7 @@ func buildDeviceProto(batch Batch, device_id uint64) (DeviceProto, error) {
 	return dt, nil
 }
 
-func (b *Batcher) getDevicePackets(batches []Batch, device_id uint64) (CHBatch, error) {
+func (b *Batcher) getDevicePackets(batches []Batch, device_id uuid.UUID) (CHBatch, error) {
 	var result CHBatch
 
 	for _, batch := range batches {

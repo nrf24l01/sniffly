@@ -1,9 +1,13 @@
 package batcher
 
-import "time"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 type BaseDeviceStat struct {
-	DeviceID         uint64
+	DeviceID         uuid.UUID
 	Bucket           time.Time
 	Requests         uint64
 }
@@ -30,7 +34,18 @@ type DeviceProto struct {
 }
 
 type DeviceStatLike interface {
-    DeviceTraffic | DeviceDomain | DeviceCountry | DeviceProto
+	GetBucket() time.Time
+	GetDeviceID() uuid.UUID
+}
+
+// Provide accessors on the embedded BaseDeviceStat so concrete types satisfy
+// the DeviceStatLike interface via promotion.
+func (b BaseDeviceStat) GetBucket() time.Time {
+	return b.Bucket
+}
+
+func (b BaseDeviceStat) GetDeviceID() uuid.UUID {
+	return b.DeviceID
 }
 
 // type AnyStat interface {

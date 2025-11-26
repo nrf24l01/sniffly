@@ -5,6 +5,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/nrf24l01/sniffly/capturer/snifpacket"
 )
 
@@ -16,31 +17,35 @@ func (b *Batcher) Process(ctx context.Context, batch Batch) error {
 	}
 
 	// Retrieving or creating device IDs
-	per_device_mac_device_id := make(map[string]uint64)
+	per_device_mac_device_id := make(map[string]uuid.UUID)
 	for device_id, _ := range per_device_mac {
-		rows, err := b.CHDB.CH.Query(ctx, "SELECT device_id FROM device_info WHERE mac = ?", device_id)
+		rows, err := b.PGDB.Raw("SELECT id FROM device_info WHERE mac = ?", device_id).Rows()
 		if err != nil {
 			return err
 		}
-		var found_device_id uint64
+		var found_device_id uuid.UUID
 		if rows.Next() {
-			err = rows.Scan(&found_device_id)
-			if err != nil {
+			if err = rows.Scan(&found_device_id); err != nil {
+				rows.Close()
 				return err
 			}
 			per_device_mac_device_id[device_id] = found_device_id
+			rows.Close()
 		} else {
-			new_id := b.SnowflakeNode.Generate().Int64()
-			err := b.CHDB.CH.Exec(ctx, "INSERT INTO device_info (device_id, mac, ip) VALUES (?, ?, ?)", new_id, device_id, per_device_mac[device_id][0].SrcIP)
-			if err != nil {
+			rows.Close()
+			// insert and return generated id in a single query
+			if err := b.PGDB.Raw(
+				"INSERT INTO device_info (mac, ip) VALUES (?, ?) RETURNING id",
+				device_id, per_device_mac[device_id][0].SrcIP,
+			).Row().Scan(&found_device_id); err != nil {
 				return err
 			}
-			per_device_mac_device_id[device_id] = uint64(new_id)
+			per_device_mac_device_id[device_id] = found_device_id
 		}
 	}
 	
 	// Grouping packets by device ID
-	per_device_id := make(map[uint64][]snifpacket.SnifPacket)
+	per_device_id := make(map[uuid.UUID][]snifpacket.SnifPacket)
 	for mac, packets := range per_device_mac {
 		device_id := per_device_mac_device_id[mac]
 		per_device_id[device_id] = packets
@@ -68,7 +73,7 @@ func (b *Batcher) Process(ctx context.Context, batch Batch) error {
 	return bigBatch.Insert(ctx, b)
 }
 
-func (b *Batcher) processDevicBigBatch(ctx context.Context, device_id uint64, packets []snifpacket.SnifPacket) (CHBatch, error) {
+func (b *Batcher) processDevicBigBatch(ctx context.Context, device_id uuid.UUID, packets []snifpacket.SnifPacket) (CHBatch, error) {
 	var first_packet_time time.Time
 	var last_packet_time time.Time
 

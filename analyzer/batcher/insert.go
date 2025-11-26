@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
+	"github.com/google/uuid"
 	"github.com/lib/pq"
 )
 
@@ -31,123 +31,119 @@ func insertAnyStat[T DeviceStatLike](ctx context.Context, table_name string, rec
 	return nil
 }
 
-func insertStatPerDevice[T DeviceStatLike](ctx context.Context, records []T, b *Batcher, device_id uint64) error {
+func insertStatPerDevice[T DeviceStatLike](ctx context.Context, records []T, b *Batcher, device_id uuid.UUID) error {
 	if len(records) == 0 {
 		return nil
 	}
 
+	var traffics []DeviceTraffic
+	var domains []DeviceDomain
+	var countries []DeviceCountry
+	var protos []DeviceProto
+
 	for _, rec := range records {
 		switch r := any(rec).(type) {
 		case DeviceTraffic:
-			// increment numeric columns on conflict (device_id, time)
-			q := `INSERT INTO devices_traffics_5s (time, device_id, up_bytes, req_count)
-				  VALUES ($1, $2, $3, $4)
-				  ON CONFLICT (device_id, time) DO UPDATE
-				  SET up_bytes = devices_traffics_5s.up_bytes + EXCLUDED.up_bytes,
-					  req_count = devices_traffics_5s.req_count + EXCLUDED.req_count`
-			if err := b.PGDB.WithContext(ctx).Exec(q, r.Bucket, uint64(r.DeviceID), r.UpBytes, r.Requests).Error; err != nil {
-				return err
-			}
+			traffics = append(traffics, r)
 		case DeviceDomain:
-			// increment requests for same domain (device_id, time, domain)
-			q := `INSERT INTO devices_domains_5s (time, device_id, domain, requests)
-				  VALUES ($1, $2, $3, $4)
-				  ON CONFLICT (device_id, time, domain) DO UPDATE
-				  SET requests = devices_domains_5s.requests + EXCLUDED.requests`
-			if err := b.PGDB.WithContext(ctx).Exec(q, r.Bucket, uint64(r.DeviceID), string(r.Domain), r.Requests).Error; err != nil {
-				return err
-			}
+			domains = append(domains, r)
 		case DeviceCountry:
-			// merge arrays (companies, countries) and sum requests on conflict (device_id, time)
-			// coalesce is used to handle NULL arrays
-			q := `INSERT INTO devices_countries_5s (time, device_id, companies, countries, requests)
-				  VALUES ($1, $2, $3, $4, $5)
-				  ON CONFLICT (device_id, time) DO UPDATE
-				  SET companies = (
-						  SELECT ARRAY(SELECT DISTINCT x FROM unnest(coalesce(devices_countries_5s.companies, '{}') || EXCLUDED.companies) AS x)
-					  ),
-					  countries = (
-						  SELECT ARRAY(SELECT DISTINCT x FROM unnest(coalesce(devices_countries_5s.countries, '{}') || EXCLUDED.countries) AS x)
-					  ),
-					  requests = devices_countries_5s.requests + EXCLUDED.requests`
-			if err := b.PGDB.WithContext(ctx).Exec(q, r.Bucket, uint64(r.DeviceID), pq.StringArray(r.Company), pq.StringArray(r.Country), r.Requests).Error; err != nil {
-				return err
-			}
+			countries = append(countries, r)
 		case DeviceProto:
-			// increment requests for same proto (device_id, time, proto)
-			q := `INSERT INTO devices_protos_5s (time, device_id, proto, requests)
-				  VALUES ($1, $2, $3, $4)
-				  ON CONFLICT (device_id, time, proto) DO UPDATE
-				  SET requests = devices_protos_5s.requests + EXCLUDED.requests`
-			if err := b.PGDB.WithContext(ctx).Exec(q, r.Bucket, uint64(r.DeviceID), string(r.Proto), r.Requests).Error; err != nil {
-				return err
-			}
+			protos = append(protos, r)
 		default:
-			return fmt.Errorf("unsupported record type: %T", records[0])
+			return fmt.Errorf("unsupported record type: %T", rec)
+		}
+	}
+
+	exec := func(q string, args ...interface{}) error {
+		if q == "" {
+			return nil
+		}
+		if err := b.PGDB.WithContext(ctx).Exec(q, args...).Error; err != nil {
+			return err
+		}
+		return nil
+	}
+
+	// Batch DeviceTraffic
+	if len(traffics) > 0 {
+		cols := "bucket,device_id,up_bytes,req_count"
+		var vals []string
+		var args []interface{}
+		for i, r := range traffics {
+			base := i * 4
+			vals = append(vals, fmt.Sprintf("($%d,$%d,$%d,$%d)", base+1, base+2, base+3, base+4))
+			args = append(args, r.Bucket, r.DeviceID, r.UpBytes, r.Requests)
+		}
+		q := fmt.Sprintf(`INSERT INTO devices_traffics_5s (%s) VALUES %s
+			ON CONFLICT (device_id, bucket) DO UPDATE
+			SET up_bytes = devices_traffics_5s.up_bytes + EXCLUDED.up_bytes,
+				req_count = devices_traffics_5s.req_count + EXCLUDED.req_count`, cols, strings.Join(vals, ","))
+		if err := exec(q, args...); err != nil {
+			return err
+		}
+	}
+
+	// Batch DeviceDomain
+	if len(domains) > 0 {
+		cols := "bucket,device_id,domain,requests"
+		var vals []string
+		var args []interface{}
+		for i, r := range domains {
+			base := i * 4
+			vals = append(vals, fmt.Sprintf("($%d,$%d,$%d,$%d)", base+1, base+2, base+3, base+4))
+			args = append(args, r.Bucket, r.DeviceID, string(r.Domain), r.Requests)
+		}
+		q := fmt.Sprintf(`INSERT INTO devices_domains_5s (%s) VALUES %s
+			ON CONFLICT (device_id, bucket, domain) DO UPDATE
+			SET requests = devices_domains_5s.requests + EXCLUDED.requests`, cols, strings.Join(vals, ","))
+		if err := exec(q, args...); err != nil {
+			return err
+		}
+	}
+
+	// Batch DeviceCountry
+	if len(countries) > 0 {
+		cols := "bucket,device_id,companies,countries,requests"
+		var vals []string
+		var args []interface{}
+		for i, r := range countries {
+			base := i * 5
+			vals = append(vals, fmt.Sprintf("($%d,$%d,$%d,$%d,$%d)", base+1, base+2, base+3, base+4, base+5))
+			args = append(args, r.Bucket, r.DeviceID, pq.StringArray(r.Company), pq.StringArray(r.Country), r.Requests)
+		}
+		q := fmt.Sprintf(`INSERT INTO devices_countries_5s (%s) VALUES %s
+			ON CONFLICT (device_id, bucket) DO UPDATE
+			SET companies = (
+				  SELECT ARRAY(SELECT DISTINCT x FROM unnest(coalesce(devices_countries_5s.companies, '{}') || EXCLUDED.companies) AS x)
+			  ),
+			  countries = (
+				  SELECT ARRAY(SELECT DISTINCT x FROM unnest(coalesce(devices_countries_5s.countries, '{}') || EXCLUDED.countries) AS x)
+			  ),
+			  requests = devices_countries_5s.requests + EXCLUDED.requests`, cols, strings.Join(vals, ","))
+		if err := exec(q, args...); err != nil {
+			return err
+		}
+	}
+
+	// Batch DeviceProto
+	if len(protos) > 0 {
+		cols := "bucket,device_id,proto,requests"
+		var vals []string
+		var args []interface{}
+		for i, r := range protos {
+			base := i * 4
+			vals = append(vals, fmt.Sprintf("($%d,$%d,$%d,$%d)", base+1, base+2, base+3, base+4))
+			args = append(args, r.Bucket, r.DeviceID, string(r.Proto), r.Requests)
+		}
+		q := fmt.Sprintf(`INSERT INTO devices_protos_5s (%s) VALUES %s
+			ON CONFLICT (device_id, bucket, proto) DO UPDATE
+			SET requests = devices_protos_5s.requests + EXCLUDED.requests`, cols, strings.Join(vals, ","))
+		if err := exec(q, args...); err != nil {
+			return err
 		}
 	}
 
 	return nil
-}
-
-func (b *Batcher) checkAlreadyHadTimeBatches(ctx context.Context, times []time.Time, table_name string, device_id uint64) ([]time.Time, []time.Time, error) {
-	if len(times) == 0 {
-		return nil, nil, nil
-	}
-
-	// Для больших слайсов разбиваем на чанки, чтобы не строить гигантский IN(...)
-	const chunkSize = 5000
-
-	existing := make(map[int64]struct{}, len(times))
-
-	for i := 0; i < len(times); i += chunkSize {
-		end := i + chunkSize
-		if end > len(times) {
-			end = len(times)
-		}
-		chunk := times[i:end]
-
-		// Build placeholders and args for this chunk
-		args := make([]interface{}, 0, len(chunk)+1)
-		args = append(args, device_id)
-
-		placeholders := make([]string, len(chunk))
-		for j, t := range chunk {
-			placeholders[j] = "?"
-			args = append(args, t)
-		}
-
-		query := fmt.Sprintf("SELECT time FROM %s WHERE device_id = ? AND time IN (%s)", table_name, strings.Join(placeholders, ","))
-
-		rows, err := b.PGDB.WithContext(ctx).Raw(query, args...).Rows()
-		if err != nil {
-			return nil, nil, err
-		}
-
-		for rows.Next() {
-			var t time.Time
-			if err := rows.Scan(&t); err != nil {
-				rows.Close()
-				return nil, nil, err
-			}
-			existing[t.UnixNano()] = struct{}{}
-		}
-		if err := rows.Err(); err != nil {
-			rows.Close()
-			return nil, nil, err
-		}
-		rows.Close()
-	}
-
-	have := make([]time.Time, 0, len(existing))
-	notHave := make([]time.Time, 0, len(times)-len(existing))
-	for _, t := range times {
-		if _, ok := existing[t.UnixNano()]; ok {
-			have = append(have, t)
-		} else {
-			notHave = append(notHave, t)
-		}
-	}
-
-	return have, notHave, nil
 }
