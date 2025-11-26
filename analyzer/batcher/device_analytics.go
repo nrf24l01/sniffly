@@ -11,7 +11,7 @@ import (
 func buildDeviceTraffic(batch Batch, device_id uint64) (DeviceTraffic, error) {
 	var dt DeviceTraffic
 	for _, b := range batch.Packets {
-		dt.ReqCount += 1
+		dt.Requests += 1
 		dt.UpBytes += uint64(b.Size)
 	}
 	dt.DeviceID = device_id
@@ -35,7 +35,7 @@ func buildDeviceDomain(batch Batch, device_id uint64) (DeviceDomain, error) {
 
 	var dt DeviceDomain
 	dt.DeviceID = device_id
-	dt.Domain = string(result)
+	dt.Domain = result
 	dt.Bucket = batch.From
 	dt.Requests = uint64(len(batch.Packets))
 	return dt, nil
@@ -97,7 +97,7 @@ func buildDeviceProto(batch Batch, device_id uint64) (DeviceProto, error) {
 
 	var dt DeviceProto
 	dt.DeviceID = device_id
-	dt.Proto = string(result)
+	dt.Proto = result
 	dt.Bucket = batch.From
 	dt.Requests = uint64(len(batch.Packets))
 	return dt, nil

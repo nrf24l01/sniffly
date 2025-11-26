@@ -4,7 +4,7 @@ import "github.com/nrf24l01/go-web-utils/config"
 
 type AnalyzerConfig struct {
 	RabbitMQConfig *config.RabbitMQConfig
-	CHConfig       *CHConfig
+	PGConfig       *config.PGConfig
 	AppConfig	   *AppConfig
 	RedisConfig    *config.RedisConfig
 }
@@ -13,7 +13,7 @@ type AnalyzerConfig struct {
 func BuildConfigFromEnv() *AnalyzerConfig {
 	cfg := &AnalyzerConfig{}
 	cfg.RabbitMQConfig = config.LoadRabbitMQConfigFromEnv()
-	cfg.CHConfig = LoadCHConfigFromEnv()
+	cfg.PGConfig = config.LoadPGConfigFromEnv()
 	cfg.AppConfig = LoadAppConfigFromEnv()
 	cfg.RedisConfig = config.LoadRedisConfigFromEnv()
 	return cfg

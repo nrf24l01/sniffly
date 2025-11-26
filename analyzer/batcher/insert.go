@@ -2,334 +2,91 @@ package batcher
 
 import (
 	"context"
-	"encoding/json"
-	"sync"
+	"fmt"
+	"strings"
 	"time"
+
+	"github.com/lib/pq"
 )
 
 func (c *CHBatch) Insert(ctx context.Context, b *Batcher) error {
-	var wg sync.WaitGroup
-	errCh := make(chan error, 4)
+	insertAnyStat(ctx, "devices_traffics_5s", c.DeviceTraffics, b)
+	insertAnyStat(ctx, "devices_domains_5s", c.DeviceDomains, b)
+	insertAnyStat(ctx, "devices_countries_5s", c.DeviceCountries, b)
+	insertAnyStat(ctx, "devices_protos_5s", c.DeviceProtos, b)
 
-	// traffic worker
-	if len(c.DeviceTraffics) > 0 {
-		wg.Add(1)
-		go func(rows []DeviceTraffic) {
-			defer wg.Done()
-			// Group by device_id and aggregate per bucket
-			byDevice := make(map[uint64]map[time.Time]DeviceTraffic)
-			for _, row := range rows {
-				m, ok := byDevice[row.DeviceID]
-				if !ok {
-					m = make(map[time.Time]DeviceTraffic)
-					byDevice[row.DeviceID] = m
-				}
-				if existing, ok := m[row.Bucket]; ok {
-					existing.UpBytes += row.UpBytes
-					existing.ReqCount += row.ReqCount
-					m[row.Bucket] = existing
-				} else {
-					m[row.Bucket] = row
-				}
-			}
-			for deviceID, bucketMap := range byDevice {
-				times := make([]time.Time, 0, len(bucketMap))
-				for t := range bucketMap {
-					times = append(times, t)
-				}
-				have, notHave, err := b.checkAlreadyHadTimeBatches(ctx, times, "device_traffic_5s", deviceID)
-				if err != nil {
-					select {
-					case errCh <- err:
-					default:
-					}
-					return
-				}
-				for _, t := range have {
-					row := bucketMap[t]
-					if err := b.CHDB.CH.Exec(ctx, "ALTER TABLE device_traffic_5s UPDATE up_bytes = up_bytes + ?, req_count = req_count + ? WHERE device_id = ? AND bucket = ?", row.UpBytes, row.ReqCount, deviceID, t); err != nil {
-						select {
-						case errCh <- err:
-						default:
-						}
-						return
-					}
-				}
-				if len(notHave) > 0 {
-					batchIns, err := b.CHDB.CH.PrepareBatch(ctx, "INSERT INTO device_traffic_5s (device_id, bucket, up_bytes, req_count) VALUES")
-					if err != nil {
-						select {
-						case errCh <- err:
-						default:
-						}
-						return
-					}
-					for _, t := range notHave {
-						row := bucketMap[t]
-						if err := batchIns.Append(row.DeviceID, row.Bucket, row.UpBytes, row.ReqCount); err != nil {
-							select {
-							case errCh <- err:
-							default:
-							}
-							return
-						}
-					}
-					if err := batchIns.Send(); err != nil {
-						select {
-						case errCh <- err:
-						default:
-						}
-						return
-					}
-				}
-			}
-		}(c.DeviceTraffics)
+	return nil
+}
+
+func insertAnyStat[T DeviceStatLike](ctx context.Context, table_name string, records []T, b *Batcher) error {
+	if len(records) == 0 {
+		return nil
 	}
 
-	// domains worker
-	if len(c.DeviceDomains) > 0 {
-		wg.Add(1)
-		go func(rows []DeviceDomain) {
-			defer wg.Done()
-			deviceID := rows[0].DeviceID
-			m := make(map[time.Time]DeviceDomain)
-			times := make([]time.Time, 0, len(rows))
-			for _, r := range rows {
-				m[r.Bucket] = r
-				times = append(times, r.Bucket)
-			}
-			have, notHave, err := b.checkAlreadyHadTimeBatches(ctx, times, "device_domain_5s", deviceID)
-			if err != nil {
-				select { case errCh <- err: default: }
-				return
-			}
-			for _, t := range have {
-				newR := m[t]
-				qr, err := b.CHDB.CH.Query(ctx, "SELECT domain, requests FROM device_domain_5s WHERE device_id = ? AND bucket = ?", deviceID, t)
-				if err != nil {
-					select { case errCh <- err: default: }
-					return
-				}
-				var existingDomain string
-				var existingReq uint64
-				if qr.Next() {
-					if err := qr.Scan(&existingDomain, &existingReq); err != nil {
-						qr.Close()
-						select { case errCh <- err: default: }
-						return
-					}
-				}
-				qr.Close()
-				var existMap map[string]uint64
-				var newMap map[string]uint64
-				if existingDomain != "" {
-					_ = json.Unmarshal([]byte(existingDomain), &existMap)
-				}
-				_ = json.Unmarshal([]byte(newR.Domain), &newMap)
-				if existMap == nil {
-					existMap = make(map[string]uint64)
-				}
-				for k, v := range newMap {
-					existMap[k] += v
-				}
-				merged, err := json.Marshal(existMap)
-				if err != nil {
-					select { case errCh <- err: default: }
-					return
-				}
-				if err := b.CHDB.CH.Exec(ctx, "ALTER TABLE device_domain_5s UPDATE domain = ?, requests = requests + ? WHERE device_id = ? AND bucket = ?", string(merged), newR.Requests, deviceID, t); err != nil {
-					select { case errCh <- err: default: }
-					return
-				}
-			}
-			if len(notHave) > 0 {
-				batchIns, err := b.CHDB.CH.PrepareBatch(ctx, "INSERT INTO device_domain_5s (device_id, bucket, domain, requests) VALUES")
-				if err != nil {
-					select { case errCh <- err: default: }
-					return
-				}
-				for _, t := range notHave {
-					r := m[t]
-					if err := batchIns.Append(r.DeviceID, r.Bucket, r.Domain, r.Requests); err != nil {
-						select { case errCh <- err: default: }
-						return
-					}
-				}
-				if err := batchIns.Send(); err != nil {
-					select { case errCh <- err: default: }
-					return
-				}
-			}
-		}(c.DeviceDomains)
+	per_device_id := aggregatePerDeviceID(records)
+	
+	for device_id, records_per_device := range per_device_id {
+		insertStatPerDevice(ctx, records_per_device, b, device_id)
+	}
+	return nil
+}
+
+func insertStatPerDevice[T DeviceStatLike](ctx context.Context, records []T, b *Batcher, device_id uint64) error {
+	if len(records) == 0 {
+		return nil
 	}
 
-	// countries worker
-	if len(c.DeviceCountries) > 0 {
-		wg.Add(1)
-		go func(rows []DeviceCountry) {
-			defer wg.Done()
-			deviceID := rows[0].DeviceID
-			m := make(map[time.Time]DeviceCountry)
-			times := make([]time.Time, 0, len(rows))
-			for _, r := range rows {
-				m[r.Bucket] = r
-				times = append(times, r.Bucket)
+	for _, rec := range records {
+		switch r := any(rec).(type) {
+		case DeviceTraffic:
+			// increment numeric columns on conflict (device_id, time)
+			q := `INSERT INTO devices_traffics_5s (time, device_id, up_bytes, req_count)
+				  VALUES ($1, $2, $3, $4)
+				  ON CONFLICT (device_id, time) DO UPDATE
+				  SET up_bytes = devices_traffics_5s.up_bytes + EXCLUDED.up_bytes,
+					  req_count = devices_traffics_5s.req_count + EXCLUDED.req_count`
+			if err := b.PGDB.WithContext(ctx).Exec(q, r.Bucket, uint64(r.DeviceID), r.UpBytes, r.Requests).Error; err != nil {
+				return err
 			}
-			have, notHave, err := b.checkAlreadyHadTimeBatches(ctx, times, "device_country_5s", deviceID)
-			if err != nil {
-				select { case errCh <- err: default: }
-				return
+		case DeviceDomain:
+			// increment requests for same domain (device_id, time, domain)
+			q := `INSERT INTO devices_domains_5s (time, device_id, domain, requests)
+				  VALUES ($1, $2, $3, $4)
+				  ON CONFLICT (device_id, time, domain) DO UPDATE
+				  SET requests = devices_domains_5s.requests + EXCLUDED.requests`
+			if err := b.PGDB.WithContext(ctx).Exec(q, r.Bucket, uint64(r.DeviceID), string(r.Domain), r.Requests).Error; err != nil {
+				return err
 			}
-			for _, t := range have {
-				newR := m[t]
-				qr, err := b.CHDB.CH.Query(ctx, "SELECT companies, countries, requests FROM device_country_5s WHERE device_id = ? AND bucket = ?", deviceID, t)
-				if err != nil {
-					select { case errCh <- err: default: }
-					return
-				}
-				var existCompanies []string
-				var existCountries []string
-				var existReq uint64
-				if qr.Next() {
-					if err := qr.Scan(&existCompanies, &existCountries, &existReq); err != nil {
-						qr.Close()
-						select { case errCh <- err: default: }
-						return
-					}
-				}
-				qr.Close()
-				comps := make(map[string]struct{})
-				for _, c := range existCompanies {
-					comps[c] = struct{}{}
-				}
-				for _, c := range newR.Company {
-					comps[c] = struct{}{}
-				}
-				mergedComps := make([]string, 0, len(comps))
-				for k := range comps {
-					mergedComps = append(mergedComps, k)
-				}
-				cnts := make(map[string]struct{})
-				for _, c := range existCountries {
-					cnts[c] = struct{}{}
-				}
-				for _, c := range newR.Country {
-					cnts[c] = struct{}{}
-				}
-				mergedCnts := make([]string, 0, len(cnts))
-				for k := range cnts {
-					mergedCnts = append(mergedCnts, k)
-				}
-				if err := b.CHDB.CH.Exec(ctx, "ALTER TABLE device_country_5s UPDATE companies = ?, countries = ?, requests = requests + ? WHERE device_id = ? AND bucket = ?", mergedComps, mergedCnts, newR.Requests, deviceID, t); err != nil {
-					select { case errCh <- err: default: }
-					return
-				}
+		case DeviceCountry:
+			// merge arrays (companies, countries) and sum requests on conflict (device_id, time)
+			// coalesce is used to handle NULL arrays
+			q := `INSERT INTO devices_countries_5s (time, device_id, companies, countries, requests)
+				  VALUES ($1, $2, $3, $4, $5)
+				  ON CONFLICT (device_id, time) DO UPDATE
+				  SET companies = (
+						  SELECT ARRAY(SELECT DISTINCT x FROM unnest(coalesce(devices_countries_5s.companies, '{}') || EXCLUDED.companies) AS x)
+					  ),
+					  countries = (
+						  SELECT ARRAY(SELECT DISTINCT x FROM unnest(coalesce(devices_countries_5s.countries, '{}') || EXCLUDED.countries) AS x)
+					  ),
+					  requests = devices_countries_5s.requests + EXCLUDED.requests`
+			if err := b.PGDB.WithContext(ctx).Exec(q, r.Bucket, uint64(r.DeviceID), pq.StringArray(r.Company), pq.StringArray(r.Country), r.Requests).Error; err != nil {
+				return err
 			}
-			if len(notHave) > 0 {
-				batchIns, err := b.CHDB.CH.PrepareBatch(ctx, "INSERT INTO device_country_5s (device_id, bucket, companies, countries, requests) VALUES")
-				if err != nil {
-					select { case errCh <- err: default: }
-					return
-				}
-				for _, t := range notHave {
-					r := m[t]
-					if err := batchIns.Append(r.DeviceID, r.Bucket, r.Company, r.Country, r.Requests); err != nil {
-						select { case errCh <- err: default: }
-						return
-					}
-				}
-				if err := batchIns.Send(); err != nil {
-					select { case errCh <- err: default: }
-					return
-				}
+		case DeviceProto:
+			// increment requests for same proto (device_id, time, proto)
+			q := `INSERT INTO devices_protos_5s (time, device_id, proto, requests)
+				  VALUES ($1, $2, $3, $4)
+				  ON CONFLICT (device_id, time, proto) DO UPDATE
+				  SET requests = devices_protos_5s.requests + EXCLUDED.requests`
+			if err := b.PGDB.WithContext(ctx).Exec(q, r.Bucket, uint64(r.DeviceID), string(r.Proto), r.Requests).Error; err != nil {
+				return err
 			}
-		}(c.DeviceCountries)
-	}
-
-	// protos worker
-	if len(c.DeviceProtos) > 0 {
-		wg.Add(1)
-		go func(rows []DeviceProto) {
-			defer wg.Done()
-			deviceID := rows[0].DeviceID
-			m := make(map[time.Time]DeviceProto)
-			times := make([]time.Time, 0, len(rows))
-			for _, r := range rows {
-				m[r.Bucket] = r
-				times = append(times, r.Bucket)
-			}
-			have, notHave, err := b.checkAlreadyHadTimeBatches(ctx, times, "device_proto_5s", deviceID)
-			if err != nil {
-				select { case errCh <- err: default: }
-				return
-			}
-			for _, t := range have {
-				newR := m[t]
-				qr, err := b.CHDB.CH.Query(ctx, "SELECT proto, requests FROM device_proto_5s WHERE device_id = ? AND bucket = ?", deviceID, t)
-				if err != nil {
-					select { case errCh <- err: default: }
-					return
-				}
-				var existingProto string
-				var existingReq uint64
-				if qr.Next() {
-					if err := qr.Scan(&existingProto, &existingReq); err != nil {
-						qr.Close()
-						select { case errCh <- err: default: }
-						return
-					}
-				}
-				qr.Close()
-				var existMap map[string]uint64
-				var newMap map[string]uint64
-				if existingProto != "" {
-					_ = json.Unmarshal([]byte(existingProto), &existMap)
-				}
-				_ = json.Unmarshal([]byte(newR.Proto), &newMap)
-				if existMap == nil {
-					existMap = make(map[string]uint64)
-				}
-				for k, v := range newMap {
-					existMap[k] += v
-				}
-				merged, err := json.Marshal(existMap)
-				if err != nil {
-					select { case errCh <- err: default: }
-					return
-				}
-				if err := b.CHDB.CH.Exec(ctx, "ALTER TABLE device_proto_5s UPDATE proto = ?, requests = requests + ? WHERE device_id = ? AND bucket = ?", string(merged), newR.Requests, deviceID, t); err != nil {
-					select { case errCh <- err: default: }
-					return
-				}
-			}
-			if len(notHave) > 0 {
-				batchIns, err := b.CHDB.CH.PrepareBatch(ctx, "INSERT INTO device_proto_5s (device_id, bucket, proto, requests) VALUES")
-				if err != nil {
-					select { case errCh <- err: default: }
-					return
-				}
-				for _, t := range notHave {
-					r := m[t]
-					if err := batchIns.Append(r.DeviceID, r.Bucket, r.Proto, r.Requests); err != nil {
-						select { case errCh <- err: default: }
-						return
-					}
-				}
-				if err := batchIns.Send(); err != nil {
-					select { case errCh <- err: default: }
-					return
-				}
-			}
-		}(c.DeviceProtos)
-	}
-
-	wg.Wait()
-	close(errCh)
-	for err := range errCh {
-		if err != nil {
-			return err
+		default:
+			return fmt.Errorf("unsupported record type: %T", records[0])
 		}
 	}
+
 	return nil
 }
 
@@ -337,78 +94,59 @@ func (b *Batcher) checkAlreadyHadTimeBatches(ctx context.Context, times []time.T
 	if len(times) == 0 {
 		return nil, nil, nil
 	}
-	// Use a persistent helper table to avoid temporary-table/session API requirements.
-	// helper_buckets(session_id UInt64, bucket DateTime)
 
-	// Ensure helper table exists (idempotent)
-	if err := b.CHDB.CH.Exec(ctx, `
-		CREATE TABLE IF NOT EXISTS helper_buckets (
-			session_id UInt64,
-			bucket DateTime
-		) ENGINE = MergeTree ORDER BY (session_id, bucket)
-	`); err != nil {
-		return nil, nil, err
-	}
+	// Для больших слайсов разбиваем на чанки, чтобы не строить гигантский IN(...)
+	const chunkSize = 5000
 
-	// Create a session id for this operation
-	var sessionID uint64
-	if b.SnowflakeNode != nil {
-		sessionID = uint64(b.SnowflakeNode.Generate().Int64())
-	} else {
-		sessionID = uint64(time.Now().UnixNano())
-	}
+	existing := make(map[int64]struct{}, len(times))
 
-	// Insert requested buckets for this session into helper_buckets
-	if len(times) > 0 {
-		batchIns, err := b.CHDB.CH.PrepareBatch(ctx, "INSERT INTO helper_buckets (session_id, bucket) VALUES")
+	for i := 0; i < len(times); i += chunkSize {
+		end := i + chunkSize
+		if end > len(times) {
+			end = len(times)
+		}
+		chunk := times[i:end]
+
+		// Build placeholders and args for this chunk
+		args := make([]interface{}, 0, len(chunk)+1)
+		args = append(args, device_id)
+
+		placeholders := make([]string, len(chunk))
+		for j, t := range chunk {
+			placeholders[j] = "?"
+			args = append(args, t)
+		}
+
+		query := fmt.Sprintf("SELECT time FROM %s WHERE device_id = ? AND time IN (%s)", table_name, strings.Join(placeholders, ","))
+
+		rows, err := b.PGDB.WithContext(ctx).Raw(query, args...).Rows()
 		if err != nil {
 			return nil, nil, err
 		}
-		for _, t := range times {
-			if err := batchIns.Append(sessionID, t); err != nil {
+
+		for rows.Next() {
+			var t time.Time
+			if err := rows.Scan(&t); err != nil {
+				rows.Close()
 				return nil, nil, err
 			}
+			existing[t.UnixNano()] = struct{}{}
 		}
-		if err := batchIns.Send(); err != nil {
+		if err := rows.Err(); err != nil {
+			rows.Close()
 			return nil, nil, err
 		}
+		rows.Close()
 	}
 
-	// Join the helper table with the target table to find which buckets already exist for this device
-	query := "SELECT DISTINCT d.bucket FROM " + table_name + " AS d INNER JOIN helper_buckets AS h ON d.bucket = h.bucket WHERE d.device_id = ? AND h.session_id = ?"
-	rows, err := b.CHDB.CH.Query(ctx, query, device_id, sessionID)
-	if err != nil {
-		return nil, nil, err
-	}
-	defer rows.Close()
-
-	present := make(map[time.Time]struct{})
-	for rows.Next() {
-		var bucket time.Time
-		if err := rows.Scan(&bucket); err != nil {
-			return nil, nil, err
-		}
-		present[bucket] = struct{}{}
-	}
-	if err := rows.Err(); err != nil {
-		return nil, nil, err
-	}
-
-	have := make([]time.Time, 0, len(times))
-	notHave := make([]time.Time, 0, len(times))
+	have := make([]time.Time, 0, len(existing))
+	notHave := make([]time.Time, 0, len(times)-len(existing))
 	for _, t := range times {
-		if _, ok := present[t]; ok {
+		if _, ok := existing[t.UnixNano()]; ok {
 			have = append(have, t)
 		} else {
 			notHave = append(notHave, t)
 		}
-	}
-
-	// Cleanup helper rows for this session. Use ALTER TABLE ... DELETE WHERE to remove session rows.
-	// Note: ClickHouse DELETE is asynchronous depending on the engine and settings.
-	if err := b.CHDB.CH.Exec(ctx, "ALTER TABLE helper_buckets DELETE WHERE session_id = ?", sessionID); err != nil {
-		// non-fatal: return results even if cleanup fails, but surface the error
-		return have, notHave, err
 	}
 
 	return have, notHave, nil

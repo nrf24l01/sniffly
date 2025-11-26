@@ -8,11 +8,12 @@ import (
 
 	"github.com/bwmarrin/snowflake"
 	"github.com/joho/godotenv"
+	"github.com/nrf24l01/go-web-utils/pg_kit"
 	"github.com/nrf24l01/go-web-utils/rabbitMQ"
 	redisutil "github.com/nrf24l01/go-web-utils/redis"
 	"github.com/nrf24l01/sniffly/analyzer/batcher"
-	"github.com/nrf24l01/sniffly/analyzer/clickhouse"
 	"github.com/nrf24l01/sniffly/analyzer/core"
+	"github.com/nrf24l01/sniffly/analyzer/postgres"
 )
 
 func main() {
@@ -26,16 +27,18 @@ func main() {
 	cfg := core.BuildConfigFromEnv()
 	ctx := context.Background()
 	
-	// Init and create tables in clickhouse
-	ch, err := clickhouse.InitClickHouseDatabase(ctx, cfg.CHConfig)
+	// Init Postgres
+	pg_db, err := pg_kit.RegisterPostgres(cfg.PGConfig, &postgres.DeviceInfo{}, &postgres.DeviceCountry5s{}, &postgres.DeviceDomain5s{}, &postgres.DeviceProto5s{}, &postgres.DeviceTraffic5s{})
 	if err != nil {
-		log.Fatalf("failed to connect to ClickHouse: %v", err)
+		log.Fatalf("failed to connect to Postgres: %v", err)
 	}
-	err = ch.CreateTables(ctx)
+	// Init timescaleDB
+	err = postgres.InitTimescaleDB(pg_db)
 	if err != nil {
-		log.Fatalf("failed to create tables in ClickHouse: %v", err)
+		log.Fatalf("failed to initialize TimescaleDB: %v", err)
 	}
-	
+
+
 	// Init RabbitMQ
 	rmq, err := rabbitMQ.RegisterRabbitMQ(cfg.RabbitMQConfig)
 	if err != nil {
@@ -53,7 +56,7 @@ func main() {
 
 	batcher := batcher.Batcher{
 		RMQ:  rmq,
-		CHDB: &ch,
+		PGDB: pg_db,
 		CFG:  cfg,
 		SnowflakeNode: node,
 		RDB: rdb,

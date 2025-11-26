@@ -61,6 +61,10 @@ func (b *Batcher) Process(ctx context.Context, batch Batch) error {
 		bigBatch.DeviceProtos = append(bigBatch.DeviceProtos, chBatch.DeviceProtos...)
 	}
 
+	log.Printf("bigBatch stats: traffic=%d, domains=%d, countries=%d, protos=%d", 
+		len(bigBatch.DeviceTraffics), len(bigBatch.DeviceDomains), 
+		len(bigBatch.DeviceCountries), len(bigBatch.DeviceProtos))
+
 	return bigBatch.Insert(ctx, b)
 }
 

@@ -2,34 +2,45 @@ package batcher
 
 import "time"
 
-type DeviceTraffic struct {
+type BaseDeviceStat struct {
 	DeviceID         uint64
 	Bucket           time.Time
+	Requests         uint64
+}
+
+type DeviceTraffic struct {
+	BaseDeviceStat
 	UpBytes          uint64
-	ReqCount         uint64
 }
 
 type DeviceDomain struct {
-	DeviceID         uint64
-	Bucket           time.Time
-	Domain           string
-	Requests         uint64
+	BaseDeviceStat
+	Domain           []byte
 }
 
 type DeviceCountry struct {
-	DeviceID         uint64
-	Bucket           time.Time
+	BaseDeviceStat
 	Country          []string
 	Company          []string
-	Requests         uint64
 }
 
 type DeviceProto struct {
-	DeviceID         uint64
-	Bucket           time.Time
-	Proto            string
-	Requests         uint64
+	BaseDeviceStat
+	Proto            []byte
 }
+
+type DeviceStatLike interface {
+    DeviceTraffic | DeviceDomain | DeviceCountry | DeviceProto
+}
+
+// type AnyStat interface {
+// 	isAnyStat()
+// }
+
+// func (DeviceCountry) isAnyStat()  {}
+// func (DeviceDomain) isAnyStat()   {}
+// func (DeviceProto) isAnyStat()    {}
+// func (DeviceTraffic) isAnyStat()  {}
 
 type CHBatch struct {
 	DeviceTraffics   []DeviceTraffic
