@@ -3,6 +3,7 @@ package postgres
 import (
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"github.com/nrf24l01/go-web-utils/pg_kit"
 )
@@ -10,11 +11,10 @@ import (
 type DeviceInfo struct {
 	pg_kit.BaseModel
 
-	DeviceID uint64 `gorm:"column:device_id;primaryKey;not null;index" json:"device_id"`
-	MAC      string `gorm:"column:mac;size:17" json:"mac"`
-	IP       string `gorm:"column:ip" json:"ip"`
-	Label    string `gorm:"column:label" json:"label"`
-	Hostname string `gorm:"column:hostname" json:"hostname"`
+	MAC       string    `gorm:"unique;size:17"`
+    IP        string    `gorm:"default:''"`
+    Label     string    `gorm:"default:'interface'"`
+    Hostname  string    `gorm:"default:''"`
 }
 
 func (DeviceInfo) TableName() string {
@@ -24,12 +24,12 @@ func (DeviceInfo) TableName() string {
 type DeviceTraffic5s struct {
 	pg_kit.BaseModel
 
-	Bucket   time.Time `gorm:"column:bucket;not null;index:idx_bucket_device" json:"bucket"`
-	DeviceID uint64    `gorm:"column:device_id;not null;index:idx_bucket_device" json:"device_id"`
-	UpBytes  uint64    `gorm:"column:up_bytes" json:"up_bytes"`
-	ReqCount uint64    `gorm:"column:req_count" json:"req_count"`
+	Bucket   time.Time `gorm:"not null;primaryKey;uniqueIndex:idx_bucket_device"`
+    DeviceID uuid.UUID `gorm:"type:uuid;primaryKey;not null;uniqueIndex:idx_bucket_device"`
+    UpBytes  uint64    `gorm:"default:0"`
+    ReqCount uint64    `gorm:"default:0"`
 
-	Device DeviceInfo `gorm:"foreignKey:DeviceID;references:DeviceID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"-"`
+    Device DeviceInfo `gorm:"foreignKey:DeviceID;references:ID;constraint:OnDelete:CASCADE"`
 }
 
 func (DeviceTraffic5s) TableName() string {
@@ -39,12 +39,12 @@ func (DeviceTraffic5s) TableName() string {
 type DeviceDomain5s struct {
 	pg_kit.BaseModel
 
-	Bucket   time.Time `gorm:"column:bucket;not null;index:idx_bucket_device" json:"bucket"`
-	DeviceID uint64    `gorm:"column:device_id;not null;index:idx_bucket_device" json:"device_id"`
-	Domain   string    `gorm:"column:domain" json:"domain"`
-	Requests uint64    `gorm:"column:requests" json:"requests"`
+	Bucket   time.Time `gorm:"not null;primaryKey;uniqueIndex:idx_bucket_device"`
+	DeviceID uuid.UUID `gorm:"type:uuid;primaryKey;not null;uniqueIndex:idx_bucket_device"`
+	Domain   string    `gorm:""`
+	Requests uint64    `gorm:"default:0"`
 
-	Device DeviceInfo `gorm:"foreignKey:DeviceID;references:DeviceID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"-"`
+	Device DeviceInfo `gorm:"foreignKey:DeviceID;references:ID;constraint:OnDelete:CASCADE"`
 }
 
 func (DeviceDomain5s) TableName() string {
@@ -54,13 +54,13 @@ func (DeviceDomain5s) TableName() string {
 type DeviceCountry5s struct {
 	pg_kit.BaseModel
 
-	Bucket    time.Time       `gorm:"column:bucket;not null;index:idx_bucket_device" json:"bucket"`
-	DeviceID  uint64          `gorm:"column:device_id;not null;index:idx_bucket_device" json:"device_id"`
-	Companies pq.StringArray  `gorm:"column:companies;type:text[]" json:"companies"`
-	Countries pq.StringArray  `gorm:"column:countries;type:text[]" json:"countries"`
-	Requests  uint64          `gorm:"column:requests" json:"requests"`
+	Bucket    time.Time       `gorm:"not null;primaryKey;uniqueIndex:idx_bucket_device"`
+	DeviceID  uuid.UUID       `gorm:"type:uuid;primaryKey;not null;uniqueIndex:idx_bucket_device"`
+	Companies pq.StringArray  `gorm:"type:text[]"`
+	Countries pq.StringArray  `gorm:"type:text[]"`
+	Requests  uint64          `gorm:"default:0"`
 
-	Device DeviceInfo `gorm:"foreignKey:DeviceID;references:DeviceID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"-"`
+	Device DeviceInfo `gorm:"foreignKey:DeviceID;references:ID;constraint:OnDelete:CASCADE"`
 }
 
 func (DeviceCountry5s) TableName() string {
@@ -70,12 +70,12 @@ func (DeviceCountry5s) TableName() string {
 type DeviceProto5s struct {
 	pg_kit.BaseModel
 
-	Bucket   time.Time `gorm:"column:bucket;not null;index:idx_bucket_device" json:"bucket"`
-	DeviceID uint64    `gorm:"column:device_id;not null;index:idx_bucket_device" json:"device_id"`
-	Proto    string    `gorm:"column:proto" json:"proto"`
-	Requests uint64    `gorm:"column:requests" json:"requests"`
+	Bucket   time.Time `gorm:"not null;primaryKey;uniqueIndex:idx_bucket_device"`
+	DeviceID uuid.UUID `gorm:"type:uuid;primaryKey;not null;uniqueIndex:idx_bucket_device"`
+	Proto    string    `gorm:""`
+	Requests uint64    `gorm:"default:0"`
 
-	Device DeviceInfo `gorm:"foreignKey:DeviceID;references:DeviceID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"-"`
+	Device DeviceInfo `gorm:"foreignKey:DeviceID;references:ID;constraint:OnDelete:CASCADE"`
 }
 
 func (DeviceProto5s) TableName() string {
