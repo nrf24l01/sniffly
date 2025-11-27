@@ -3,6 +3,8 @@ package snifpacket
 import (
 	"log"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/pcap"
@@ -23,20 +25,50 @@ func ReceivePackets(handle *pcap.Handle, iface string, packets chan *SnifPacket,
         filterEnabled = false
     }
 
-    for packet := range packetSource.Packets() {
-        sp, err := ProcessPacket(packet)
-        if err != nil {
-            log.Printf("Error processing packet: %v", err)
-            continue
-        }
+    // Diagnostics & counters
+    var received uint64
+    var dropped uint64
+    pktCh := packetSource.Packets()
+    ticker := time.NewTicker(30 * time.Second)
+    defer ticker.Stop()
 
-        if filterEnabled {
-            if _, ok := localIPs[sp.SrcIP]; !ok && sp.SrcMAC != localMAC {
+LOOP:
+    for {
+        select {
+        case packet, ok := <-pktCh:
+            if !ok {
+                // packet source closed
+                break LOOP
+            }
+
+            sp, err := ProcessPacket(packet)
+            if err != nil {
                 continue
             }
-        }
 
-        packets <- sp
+            if filterEnabled {
+                if _, ok := localIPs[sp.SrcIP]; !ok && sp.SrcMAC != localMAC {
+                    continue
+                }
+            }
+
+            // Try to send without blocking forever. If consumers are slow, drop
+            // packets and log periodically rather than blocking the capture.
+            select {
+            case packets <- sp:
+                atomic.AddUint64(&received, 1)
+            default:
+                // channel full, drop packet
+                atomic.AddUint64(&dropped, 1)
+                if atomic.LoadUint64(&dropped)%100 == 0 {
+                    log.Printf("packets channel full, dropped=%d, received=%d, len(packets)=%d", atomic.LoadUint64(&dropped), atomic.LoadUint64(&received), len(packets))
+                }
+            }
+
+        case <-ticker.C:
+            // periodic status
+            log.Printf("capture status: received=%d dropped=%d queue_len=%d", atomic.LoadUint64(&received), atomic.LoadUint64(&dropped), len(packets))
+        }
     }
     log.Printf("Packet receiving goroutine for interface %s exiting", iface)
 }
