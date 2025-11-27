@@ -10,6 +10,9 @@ import (
 
 func ReceivePackets(handle *pcap.Handle, iface string, packets chan *SnifPacket, wg *sync.WaitGroup) {
     defer wg.Done()
+    // Close packets channel when this sender exits so receivers can finish cleanly.
+    // ReceivePackets is the only sender on the channel, so it's safe to close it here.
+    defer close(packets)
 
     packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
 

@@ -50,7 +50,16 @@ func main() {
     go snifpacket.ReceivePackets(handle, config.Interface, packets, &wg)
 
     wg.Add(1)
-    go grpc.StreamPackets(client, config, packets, &wg)
+    // Run StreamPackets in a wrapper that logs its returned error (if any).
+    // Previously the goroutine return value was ignored which could make stream
+    // failures silent and cause the capture to appear to stop without errors.
+    go func() {
+        if err := grpc.StreamPackets(client, config, packets, &wg); err != nil {
+            log.Printf("StreamPackets exited with error: %v", err)
+        } else {
+            log.Printf("StreamPackets exited normally")
+        }
+    }()
 
     // On exit
     wg.Wait()
