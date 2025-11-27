@@ -95,9 +95,19 @@ func insertStatPerDevice[T DeviceStatLike](ctx context.Context, records []T, b *
 			vals = append(vals, fmt.Sprintf("($%d,$%d,$%d,$%d)", base+1, base+2, base+3, base+4))
 			args = append(args, r.Bucket, r.DeviceID, string(r.Domain), r.Requests)
 		}
-		q := fmt.Sprintf(`INSERT INTO devices_domains_5s (%s) VALUES %s
-			ON CONFLICT (device_id, bucket, domain) DO UPDATE
-			SET requests = devices_domains_5s.requests + EXCLUDED.requests`, cols, strings.Join(vals, ","))
+			q := fmt.Sprintf(`INSERT INTO devices_domains_5s (%s) VALUES %s
+				ON CONFLICT (device_id, bucket) DO UPDATE
+				SET domain = (
+					SELECT jsonb_object_agg(k, to_jsonb(sum_v)) FROM (
+						SELECT k, sum(v::bigint) AS sum_v FROM (
+							SELECT key AS k, value AS v FROM jsonb_each_text(coalesce(devices_domains_5s.domain, '{}'::jsonb))
+							UNION ALL
+							SELECT key, value FROM jsonb_each_text(EXCLUDED.domain)
+						) x
+						GROUP BY k
+					) y
+				),
+				requests = devices_domains_5s.requests + EXCLUDED.requests`, cols, strings.Join(vals, ","))
 		if err := exec(q, args...); err != nil {
 			return err
 		}
@@ -138,8 +148,18 @@ func insertStatPerDevice[T DeviceStatLike](ctx context.Context, records []T, b *
 			args = append(args, r.Bucket, r.DeviceID, string(r.Proto), r.Requests)
 		}
 		q := fmt.Sprintf(`INSERT INTO devices_protos_5s (%s) VALUES %s
-			ON CONFLICT (device_id, bucket, proto) DO UPDATE
-			SET requests = devices_protos_5s.requests + EXCLUDED.requests`, cols, strings.Join(vals, ","))
+			ON CONFLICT (device_id, bucket) DO UPDATE
+			SET proto = (
+				SELECT jsonb_object_agg(k, to_jsonb(sum_v)) FROM (
+					SELECT k, sum(v::bigint) AS sum_v FROM (
+						SELECT key AS k, value AS v FROM jsonb_each_text(coalesce(devices_protos_5s.proto, '{}'::jsonb))
+						UNION ALL
+						SELECT key, value FROM jsonb_each_text(EXCLUDED.proto)
+					) x
+					GROUP BY k
+				) y
+			),
+			requests = devices_protos_5s.requests + EXCLUDED.requests`, cols, strings.Join(vals, ","))
 		if err := exec(q, args...); err != nil {
 			return err
 		}

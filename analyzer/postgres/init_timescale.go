@@ -18,8 +18,8 @@ func InitTimescaleDB(db *gorm.DB) error {
         CREATE UNIQUE INDEX IF NOT EXISTS idx_devices_countries_bucket_device ON devices_countries_5s (device_id, bucket);
 
         -- For domains and protos we need uniqueness including domain/proto column as used in ON CONFLICT.
-        CREATE UNIQUE INDEX IF NOT EXISTS idx_devices_domains_bucket_device_domain ON devices_domains_5s (device_id, bucket, domain);
-        CREATE UNIQUE INDEX IF NOT EXISTS idx_devices_protos_bucket_device_proto ON devices_protos_5s (device_id, bucket, proto);
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_devices_domains_bucket_device_domain ON devices_domains_5s (device_id, bucket);
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_devices_protos_bucket_device_proto ON devices_protos_5s (device_id, bucket);
     `)
 	return tx.Error
 }

@@ -41,7 +41,7 @@ type DeviceDomain5s struct {
 
 	Bucket   time.Time `gorm:"not null;primaryKey;uniqueIndex:idx_bucket_device"`
 	DeviceID uuid.UUID `gorm:"type:uuid;primaryKey;not null;uniqueIndex:idx_bucket_device"`
-	Domain   string    `gorm:""`
+	Domain   string    `gorm:"type:jsonb;default:'{}'"`
 	Requests uint64    `gorm:"default:0"`
 
 	Device DeviceInfo `gorm:"foreignKey:DeviceID;references:ID;constraint:OnDelete:CASCADE"`
@@ -72,7 +72,7 @@ type DeviceProto5s struct {
 
 	Bucket   time.Time `gorm:"not null;primaryKey;uniqueIndex:idx_bucket_device"`
 	DeviceID uuid.UUID `gorm:"type:uuid;primaryKey;not null;uniqueIndex:idx_bucket_device"`
-	Proto    string    `gorm:""`
+	Proto    string    `gorm:"type:jsonb;default:'{}'"`
 	Requests uint64    `gorm:"default:0"`
 
 	Device DeviceInfo `gorm:"foreignKey:DeviceID;references:ID;constraint:OnDelete:CASCADE"`
