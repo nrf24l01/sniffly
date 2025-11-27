@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/gopacket/gopacket/pcap"
 	"github.com/joho/godotenv"
@@ -35,7 +36,7 @@ func main() {
     }
 
     // Open device for packet capturing
-    handle, err := pcap.OpenLive(config.Interface, 1600, true, pcap.BlockForever)
+    handle, err := pcap.OpenLive(config.Interface, 65536, true, 500*time.Millisecond)
     if err != nil {
         log.Fatal(err)
     }
