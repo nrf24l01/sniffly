@@ -51,9 +51,7 @@ LOOP:
                     continue
                 }
             }
-
-            // Try to send without blocking forever. If consumers are slow, drop
-            // packets and log periodically rather than blocking the capture.
+            
             select {
             case packets <- sp:
                 atomic.AddUint64(&received, 1)
