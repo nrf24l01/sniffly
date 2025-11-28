@@ -58,7 +58,7 @@ LOOP:
             default:
                 // channel full, drop packet
                 atomic.AddUint64(&dropped, 1)
-                if atomic.LoadUint64(&dropped)%100 == 0 {
+                if atomic.LoadUint64(&dropped)%1000 == 0 {
                     log.Printf("packets channel full, dropped=%d, received=%d, len(packets)=%d", atomic.LoadUint64(&dropped), atomic.LoadUint64(&received), len(packets))
                 }
             }

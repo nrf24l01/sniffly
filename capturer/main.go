@@ -27,7 +27,7 @@ func main() {
     config := core.LoadConfigFromEnv()
 
     // Initialize packet channel
-    packets := make(chan *snifpacket.SnifPacket, 100)
+    packets := make(chan *snifpacket.SnifPacket, 1000)
 
     // Start gRPC connection and streaming in a separate goroutine
     client, err := grpc.ConnectPacketGatewayClient(config)
