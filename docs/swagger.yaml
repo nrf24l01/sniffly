@@ -1,0 +1,744 @@
+openapi: 3.0.3
+info:
+  title: Sniffly API
+  version: "1.0.0"
+  description: API для авторизации, графиков и сводных таблиц. Везде валидация параметров.
+servers:
+  - url: https://api.example.local
+tags:
+  - name: Auth
+    description: Авторизация и обновление токенов
+  - name: Charts
+    description: Временные графики (bucketed)
+  - name: Tables
+    description: Сводные таблицы (агрегация за период)
+  - name: Captures
+    description: Управление краулерами / capture workers
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    refresh_cookie:
+      type: apiKey
+      in: cookie
+      name: refresh_token
+  schemas:
+    Error:
+      type: object
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+      required: [code, message]
+    LoginRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          minLength: 1
+        password:
+          type: string
+          minLength: 1
+      required: [username, password]
+    LoginResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+          description: JWT access token
+      required: [access_token]
+    TimestampQuery:
+      type: object
+      properties:
+        from:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Временная метка (секунды с epoch)
+        to:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Временная метка (секунды с epoch)
+      required: [from, to]
+    DeviceResponse:
+      type: object
+      properties:
+        mac:
+          type: string
+          description: MAC address
+          minLength: 1
+        ip:
+          type: string
+          description: IP address
+          minLength: 1
+        user_label:
+          type: string
+          description: User-provided label
+          minLength: 1
+        hostname:
+          type: string
+          description: Hostname
+          minLength: 1
+      required: [mac, ip, user_label, hostname]
+    DeviceTrafficBucket:
+      type: object
+      properties:
+        bucket:
+          type: integer
+          format: int64
+        up_bytes:
+          type: integer
+          format: uint64
+        down_bytes:
+          type: integer
+          format: uint64
+      required: [bucket, up_bytes, down_bytes]
+    DeviceTrafficItem:
+      type: object
+      properties:
+        device:
+          $ref: '#/components/schemas/DeviceResponse'
+        stats:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeviceTrafficBucket'
+      required: [device, stats]
+    DeviceDomainBucket:
+      type: object
+      properties:
+        bucket:
+          type: integer
+          format: int64
+        domains:
+          type: object
+          additionalProperties:
+            type: integer
+            format: uint64
+      required: [bucket, domains]
+    DeviceDomainItem:
+      type: object
+      properties:
+        device:
+          $ref: '#/components/schemas/DeviceResponse'
+        stats:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeviceDomainBucket'
+      required: [device, stats]
+    DeviceCountryBucket:
+      type: object
+      properties:
+        bucket:
+          type: integer
+          format: int64
+        countries:
+          type: object
+          additionalProperties:
+            type: integer
+            format: uint64
+      required: [bucket, countries]
+    DeviceCountryItem:
+      type: object
+      properties:
+        device:
+          $ref: '#/components/schemas/DeviceResponse'
+        stats:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeviceCountryBucket'
+      required: [device, stats]
+    DeviceProtoBucket:
+      type: object
+      properties:
+        bucket:
+          type: integer
+          format: int64
+        protos:
+          type: object
+          additionalProperties:
+            type: integer
+            format: uint64
+      required: [bucket, protos]
+    DeviceProtoItem:
+      type: object
+      properties:
+        device:
+          $ref: '#/components/schemas/DeviceResponse'
+        stats:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeviceProtoBucket'
+      required: [device, stats]
+    DeviceTrafficSummary:
+      type: object
+      properties:
+        device:
+          $ref: '#/components/schemas/DeviceResponse'
+        stats:
+          type: object
+          properties:
+            up_bytes:
+              type: integer
+              format: uint64
+            down_bytes:
+              type: integer
+              format: uint64
+          required: [up_bytes, down_bytes]
+      required: [device, stats]
+    DeviceDomainSummary:
+      type: object
+      properties:
+        device:
+          $ref: '#/components/schemas/DeviceResponse'
+        stats:
+          type: object
+          additionalProperties:
+            type: integer
+            format: uint64
+      required: [device, stats]
+    DeviceCountrySummary:
+      type: object
+      properties:
+        device:
+          $ref: '#/components/schemas/DeviceResponse'
+        stats:
+          type: object
+          additionalProperties:
+            type: integer
+            format: uint64
+      required: [device, stats]
+    DeviceProtoSummary:
+      type: object
+      properties:
+        device:
+          $ref: '#/components/schemas/DeviceResponse'
+        stats:
+          type: object
+          additionalProperties:
+            type: integer
+            format: uint64
+      required: [device, stats]
+    CaptureCreateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        enabled:
+          type: boolean
+      required: [name, enabled]
+    CaptureCreateResponse:
+      type: object
+      properties:
+        api_key:
+          type: string
+          minLength: 1
+        uuid:
+          type: string
+          format: uuid
+      required: [api_key, uuid]
+    CaptureUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        enabled:
+          type: boolean
+      additionalProperties: false
+    CaptureResponse:
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+        name:
+          type: string
+          minLength: 1
+        api_key:
+          type: string
+          minLength: 1
+        enabled:
+          type: boolean
+      required: [uuid, name, api_key, enabled]
+paths:
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Логин (возвращает access token и устанавливает refresh-token cookie)
+      security: [] # публичный эндпоинт
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Успешная аутентификация — access token в теле, refresh cookie установлен
+          headers:
+            Set-Cookie:
+              description: HttpOnly refresh cookie (refresh_token)
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          description: Некорректные данные
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Обновление access token по http-only cookie refresh_token
+      security:
+        - refresh_cookie: []
+      responses:
+        '200':
+          description: Возвращает новый access token (в теле). Может обновлять refresh cookie.
+          headers:
+            Set-Cookie:
+              description: (опционально) обновлённый HttpOnly refresh cookie
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Не валидный или отсутствующий refresh token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /charts/traffic:
+    get:
+      tags: [Charts]
+      summary: Трафик по устройствам с бакетами
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 0
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 0
+      responses:
+        '200':
+          description: Массив статистики по устройствам
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DeviceTrafficItem'
+        '400':
+          description: Неверные параметры
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /charts/domains:
+    get:
+      tags: [Charts]
+      summary: Запросы по доменам (bucketed)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/TimestampQuery/properties/from'
+        - name: to
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/TimestampQuery/properties/to'
+      responses:
+        '200':
+          description: Запросы по доменам по бакетам
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DeviceDomainItem'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /charts/countries:
+    get:
+      tags: [Charts]
+      summary: Запросы по странам (bucketed)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/TimestampQuery/properties/from'
+        - name: to
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/TimestampQuery/properties/to'
+      responses:
+        '200':
+          description: Запросы по странам по бакетам
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DeviceCountryItem'
+  /charts/protos:
+    get:
+      tags: [Charts]
+      summary: Запросы по протоколам (bucketed)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/TimestampQuery/properties/from'
+        - name: to
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/TimestampQuery/properties/to'
+      responses:
+        '200':
+          description: Запросы по протоколам по бакетам
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DeviceProtoItem'
+  /tables/traffic:
+    get:
+      tags: [Tables]
+      summary: Сводный трафик по устройствам за период
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/TimestampQuery/properties/from'
+        - name: to
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/TimestampQuery/properties/to'
+      responses:
+        '200':
+          description: Сводный трафик
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DeviceTrafficSummary'
+  /tables/domains:
+    get:
+      tags: [Tables]
+      summary: Сводные запросы по доменам за период
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/TimestampQuery/properties/from'
+        - name: to
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/TimestampQuery/properties/to'
+      responses:
+        '200':
+          description: Сводные запросы по доменам
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DeviceDomainSummary'
+  /tables/countries:
+    get:
+      tags: [Tables]
+      summary: Сводные запросы по странам за период
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/TimestampQuery/properties/from'
+        - name: to
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/TimestampQuery/properties/to'
+      responses:
+        '200':
+          description: Сводные запросы по странам
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DeviceCountrySummary'
+  /tables/protos:
+    get:
+      tags: [Tables]
+      summary: Сводные запросы по протоколам за период
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/TimestampQuery/properties/from'
+        - name: to
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/TimestampQuery/properties/to'
+      responses:
+        '200':
+          description: Сводные запросы по протоколам
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DeviceProtoSummary'
+  /captures:
+    get:
+      tags: [Captures]
+      summary: Получить список всех краулеров
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Список краулеров
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CaptureResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /capture/{id}:
+    post:
+      tags: [Captures]
+      summary: Создать краулер (capture worker)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CaptureCreateRequest'
+      responses:
+        '201':
+          description: Краулер создан, возвращается api_key и uuid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CaptureCreateResponse'
+        '400':
+          description: Неверные данные
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    get:
+      tags: [Captures]
+      summary: Получить данные краулера по id
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Данные краулера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CaptureResponse'
+        '400':
+          description: Некорректный id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Краулер не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    patch:
+      tags: [Captures]
+      summary: Обновить краулер (имя и/или enabled)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CaptureUpdateRequest'
+      responses:
+        '200':
+          description: Обновлённый краулер
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CaptureResponse'
+        '400':
+          description: Неверные данные
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Краулер не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags: [Captures]
+      summary: Удалить краулер по id
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Успешно удалено (No Content)
+        '404':
+          description: Краулер не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /capture/{id}/regenerate:
+    post:
+      tags: [Captures]
+      summary: Регенерировать api_key краулера
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Возвращает объект краулера с обновлённым api_key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CaptureResponse'
+        '404':
+          description: Краулер не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+security:
+  - bearerAuth: []
