@@ -13,5 +13,6 @@ func RegisterAuthRoutes(e *echo.Echo, h *handlers.Handler) {
 	group.POST("/login", h.LoginHandler, echokitMW.BodyValidationMiddleware(func() interface{} {
 		return &schemas.LoginRequest{}
 	}))
+	group.POST("/refresh", h.TokenRefreshHandler)
 }
 
