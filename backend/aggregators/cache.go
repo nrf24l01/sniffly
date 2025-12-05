@@ -28,10 +28,10 @@ func getCacheEntriesPerInterval(config *core.Config, rdb *redisutil.RedisClient,
 			if err != nil {
 				return nil, nil, err
 			}
-		}
 
-		days_caches[date] = day_cache
-		intervals = append(intervals, date)
+			days_caches[date] = day_cache
+			intervals = append(intervals, date)
+		}
 	}
 
 	return days_caches, intervals, nil
