@@ -12,7 +12,7 @@ import (
 func RegisterChartsRoutes(e *echo.Echo, h *handlers.Handler) {
 	group := e.Group("/charts")
 
-	group.POST("/traffic", h.GetChartsTrafficHandler, echokitMW.QueryValidationMiddleware(func() interface{} {
+	group.GET("/traffic", h.GetChartsTrafficHandler, echokitMW.QueryValidationMiddleware(func() interface{} {
 		return &schemas.ChartDataRangeRequest{}
 	}))
 }
