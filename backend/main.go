@@ -6,6 +6,7 @@ import (
 	echokitMw "github.com/nrf24l01/go-web-utils/echokit/middleware"
 	echokitSchemas "github.com/nrf24l01/go-web-utils/echokit/schemas"
 	pgKit "github.com/nrf24l01/go-web-utils/pg_kit"
+	"github.com/nrf24l01/go-web-utils/redis"
 	"github.com/nrf24l01/sniffly/backend/core"
 	"github.com/nrf24l01/sniffly/backend/handlers"
 	"github.com/nrf24l01/sniffly/backend/postgres"
@@ -39,6 +40,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to connect to postgres: %v", err)
 	}
+	rdb := redis.NewRedisClient(config.RedisConfig)
 
 	// Create echo object
 	e := echo.New()
@@ -68,7 +70,7 @@ func main() {
 	})
 
 	// Register routes
-	handler := &handlers.Handler{DB: db, Config: config}
+	handler := &handlers.Handler{DB: db, Config: config, RDB: rdb}
 	routes.RegisterRoutes(e, handler)
 	
 	// Start server

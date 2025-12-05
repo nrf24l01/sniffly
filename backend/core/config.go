@@ -5,6 +5,7 @@ import (
 )
 
 type Config struct {
+	BackendConfig         *BackendConfig
 	WebAppConfig          *utilsConfig.WebAppConfig
 	PGConfig              *utilsConfig.PGConfig
 	RedisConfig           *utilsConfig.RedisConfig
@@ -14,6 +15,7 @@ type Config struct {
 
 func BuildConfigFromEnv() (*Config, error) {
 	config := &Config{
+		BackendConfig:        LoadBackendConfigFromEnv(),
 		WebAppConfig:         utilsConfig.LoadWebAppConfigFromEnv(),
 		PGConfig:             utilsConfig.LoadPGConfigFromEnv(),
 		RedisConfig:          utilsConfig.LoadRedisConfigFromEnv(),
