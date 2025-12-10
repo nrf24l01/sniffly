@@ -9,7 +9,7 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/labstack/echo/v4 v4.13.4
 	github.com/nrf24l01/go-web-utils v1.9.3
-	github.com/nrf24l01/sniffly/analyzer v0.0.0-20251203104706-7a2b489f8688
+	github.com/nrf24l01/sniffly/analyzer v0.0.0-20251210085516-2f982d751c56
 	gorm.io/gorm v1.31.1
 )
 

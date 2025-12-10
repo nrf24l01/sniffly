@@ -15,5 +15,17 @@ func RegisterChartsRoutes(e *echo.Echo, h *handlers.Handler) {
 	group.GET("/traffic", h.GetChartsTrafficHandler, echokitMW.QueryValidationMiddleware(func() interface{} {
 		return &schemas.ChartDataRangeRequest{}
 	}))
+
+	group.GET("/domains", h.GetChartsDomainsHandler, echokitMW.QueryValidationMiddleware(func() interface{} {
+		return &schemas.ChartDataRangeRequest{}
+	}))
+
+	group.GET("/protos", h.GetChartsProtosHandler, echokitMW.QueryValidationMiddleware(func() interface{} {
+		return &schemas.ChartDataRangeRequest{}
+	}))
+
+	group.GET("/countries", h.GetChartsCountriesHandler, echokitMW.QueryValidationMiddleware(func() interface{} {
+		return &schemas.ChartDataRangeRequest{}
+	}))
 }
 

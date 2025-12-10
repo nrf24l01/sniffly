@@ -20,6 +20,40 @@ type Traffic struct {
 }
 
 type TrafficChartData struct {
-	Device  Device    `json:"device"`
-	Traffic []Traffic `json:"stats"`
+	Device Device    `json:"device"`
+	Stats  []Traffic `json:"stats"`
+}
+
+type DomainStat struct {
+	Bucket   int64             `json:"bucket"`
+	Domains  map[string]uint64 `json:"domains"`
+	ReqCount uint64            `json:"req_count"`
+}
+
+type DomainChartData struct {
+	Device Device       `json:"device"`
+	Stats  []DomainStat `json:"stats"`
+}
+
+type ProtoStat struct {
+	Bucket   int64             `json:"bucket"`
+	Protos   map[string]uint64 `json:"protos"`
+	ReqCount uint64            `json:"req_count"`
+}
+
+type ProtoChartData struct {
+	Device Device      `json:"device"`
+	Stats  []ProtoStat `json:"stats"`
+}
+
+type CountryStat struct {
+	Bucket    int64    `json:"bucket"`
+	Countries []string `json:"countries"`
+	Companies []string `json:"companies"`
+	ReqCount  uint64   `json:"req_count"`
+}
+
+type CountryChartData struct {
+	Device Device        `json:"device"`
+	Stats  []CountryStat `json:"stats"`
 }
