@@ -27,3 +27,24 @@ func (b *Batcher) RecordBatch(duration time.Duration) (Batch, error) {
 		}
 	}
 }
+
+func (b *Batcher) LoadAllRecords() (Batch, error) {
+	msgs, err := b.RMQ.Channel.Consume(b.CFG.AppConfig.CapturePacketsTopic, "", false, false, false, false, nil)
+	if err != nil {
+		return Batch{}, err
+	}
+
+	var batch Batch
+
+	for {
+		select {
+		case msg := <-msgs:
+			if err := batch.AddMessage(msg.Body); err != nil {
+				log.Printf("Error getting message: %v", err)
+			}
+			_ = msg.Ack(false)
+		default:
+			return batch, nil
+		}
+	}
+}

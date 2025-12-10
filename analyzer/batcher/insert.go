@@ -165,5 +165,37 @@ func insertStatPerDevice[T DeviceStatLike](ctx context.Context, records []T, b *
 		}
 	}
 
+	// Update day cache versions: increment by 1 for each distinct day we modified.
+	// Collect unique days from all record types (bucket -> date string YYYY-MM-DD).
+	uniqueDays := make(map[string]struct{})
+	for _, r := range traffics {
+		uniqueDays[r.Bucket.UTC().Format("2006-01-02")] = struct{}{}
+	}
+	for _, r := range domains {
+		uniqueDays[r.Bucket.UTC().Format("2006-01-02")] = struct{}{}
+	}
+	for _, r := range countries {
+		uniqueDays[r.Bucket.UTC().Format("2006-01-02")] = struct{}{}
+	}
+	for _, r := range protos {
+		uniqueDays[r.Bucket.UTC().Format("2006-01-02")] = struct{}{}
+	}
+
+	if len(uniqueDays) > 0 {
+		var vals []string
+		var args []interface{}
+		i := 0
+		for day := range uniqueDays {
+			i++
+			vals = append(vals, fmt.Sprintf("($%d,$%d)", (i-1)*2+1, (i-1)*2+2))
+			args = append(args, day, 1)
+		}
+		q := fmt.Sprintf(`INSERT INTO day_cache_versions (day, version) VALUES %s
+			ON CONFLICT (day) DO UPDATE SET version = day_cache_versions.version + 1`, strings.Join(vals, ","))
+		if err := exec(q, args...); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
