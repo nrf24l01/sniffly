@@ -28,7 +28,11 @@ func main() {
 	ctx := context.Background()
 	
 	// Init Postgres
-	pg_db, err := pg_kit.RegisterPostgres(cfg.PGConfig, &postgres.DeviceInfo{}, &postgres.DeviceCountry5s{}, &postgres.DeviceDomain5s{}, &postgres.DeviceProto5s{}, &postgres.DeviceTraffic5s{})
+	pg_db, err := pg_kit.RegisterPostgres(cfg.PGConfig, 
+		&postgres.DeviceInfo{}, 
+		&postgres.DeviceCountry5s{}, &postgres.DeviceDomain5s{}, &postgres.DeviceProto5s{}, &postgres.DeviceTraffic5s{}, 
+		&postgres.DayCacheVersion{},
+	)
 	if err != nil {
 		log.Fatalf("failed to connect to Postgres: %v", err)
 	}
