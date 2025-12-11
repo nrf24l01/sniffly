@@ -1,9 +1,10 @@
 <template>
-    <nav class="bg-green-600 text-white shadow-lg sticky top-0 z-50">
+    <nav class="bg-gray-100 text-gray-900 shadow-lg sticky top-0 z-50">
         <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-            <div class="text-2xl font-bold cursor-pointer hover:opacity-80 transition">
+            <router-link to="/" class="text-2xl font-bold cursor-pointer hover:opacity-80 transition">
+                <img src="/logo.png" alt="Logo" class="inline h-8 w-8 mr-2" />
                 Sniffly
-            </div>
+            </router-link>
             <ul class="hidden md:flex space-x-6">
                 <li v-for="link in navLinks" :key="link.name">
                     <router-link
@@ -43,7 +44,6 @@ import { ref } from 'vue'
 
 const mobileMenuOpen = ref(false)
 
-// navLinks now include a routeName field matching your named routes
 const navLinks = [
   { name: 'Home', routeName: 'Home' }
 ]
