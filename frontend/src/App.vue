@@ -9,4 +9,5 @@ import Navbar from './components/Navbar.vue'
 
 <style>
   @import "tailwindcss";
+  @custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
 </style>
