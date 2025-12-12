@@ -16,9 +16,11 @@ export async function refreshAccessToken() {
 
 api.interceptors.request.use(config => {
   const auth = useAuthStore()
-  if (auth.accessToken) {
+  // Resolve token value safely whether the store exposes a plain string or a ref
+  const token = (auth as any).accessToken?.value ?? (auth as any).accessToken
+  if (token) {
     if (!config.headers) config.headers = {} as AxiosRequestHeaders
-    (config.headers as AxiosRequestHeaders)['Authorization'] = 'Bearer ' + auth.accessToken
+    (config.headers as AxiosRequestHeaders)['Authorization'] = 'Bearer ' + token
   }
   return config
 })

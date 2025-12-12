@@ -74,7 +74,8 @@ const mobileMenuOpen = ref(false)
 const { theme, toggleTheme } = useTheme()
 
 const navLinks = [
-    { name: 'Home', routeName: 'Home' }
+  { name: 'Home', routeName: 'Home' },
+  { name: 'Login', routeName: 'Login' }
 ]
 
 const toggleMobileMenu = () => {

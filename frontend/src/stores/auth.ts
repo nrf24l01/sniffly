@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { refreshAccessToken } from '@/axios'
+import { refreshAccessToken } from '@/service/axios'
 
 function isTokenExpired(token: string | null) {
   if (!token) return true
@@ -29,6 +29,15 @@ export const useAuthStore = defineStore('auth', () => {
 
   function setToken(token: string | null) {
     accessToken.value = token
+    try {
+      if (token) {
+        localStorage.setItem('access_token', token)
+      } else {
+        localStorage.removeItem('access_token')
+      }
+    } catch (e) {
+      // ignore storage errors
+    }
     // Extract user_id and username from JWT
     if (token) {
       try {
@@ -55,6 +64,11 @@ export const useAuthStore = defineStore('auth', () => {
     accessToken.value = null
     user_id.value = null
     username.value = null
+    try {
+      localStorage.removeItem('access_token')
+    } catch (e) {
+      // ignore
+    }
   }
 
   // Add method to refresh token
@@ -67,6 +81,14 @@ export const useAuthStore = defineStore('auth', () => {
       logout()
       return false
     }
+  }
+
+  // Restore token from localStorage if present
+  try {
+    const stored = localStorage.getItem('access_token')
+    if (stored) setToken(stored)
+  } catch (e) {
+    // ignore
   }
 
   return {
