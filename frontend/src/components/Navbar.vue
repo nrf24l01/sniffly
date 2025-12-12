@@ -46,7 +46,7 @@
             </ul>
             <div class="px-4 py-3 border-t border-blue-600">
                 <button
-                    class="w-full flex items-center justify-center gap-2 px-3 py-2 rounded bg-white bg-opacity-10 hover:bg-opacity-20 transition text-white dark:bg-opacity-5 dark:text-white"
+                    class="w-full flex items-center justify-center gap-2 px-3 py-2 rounded bg-white bg-opacity-10 hover:bg-opacity-20 transition text-black dark:bg-gray-900 dark:bg-opacity-5 dark:text-white"
                     @click="toggleTheme(); mobileMenuOpen = false"
                     :aria-label="`Toggle theme, current: ${theme}`"
                 >
