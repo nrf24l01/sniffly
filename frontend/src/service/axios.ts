@@ -1,8 +1,7 @@
 import axios, { type AxiosRequestConfig, type AxiosResponse, type AxiosError, type AxiosRequestHeaders } from 'axios'
-import { useAuthStore } from '@/stores/auth'
 
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: import.meta.env.VITE_BACKEND_URL,
   withCredentials: true
 })
 
@@ -14,7 +13,8 @@ export async function refreshAccessToken() {
   return res.data.access_token
 }
 
-api.interceptors.request.use(config => {
+api.interceptors.request.use(async config => {
+  const { useAuthStore } = await import('@/stores/auth')
   const auth = useAuthStore()
   // Resolve token value safely whether the store exposes a plain string or a ref
   const token = (auth as any).accessToken?.value ?? (auth as any).accessToken
@@ -25,14 +25,19 @@ api.interceptors.request.use(config => {
   return config
 })
 
+// Use dynamic import here too to avoid circular import during module init
 api.interceptors.response.use(
   (response: AxiosResponse) => response,
   async (error: unknown) => {
+    const { useAuthStore } = await import('@/stores/auth')
     const auth = useAuthStore()
 
     if (axios.isAxiosError(error)) {
-      const status = error.response?.status
-      if (status === 401) {
+        const status = error.response?.status
+        const config = error.config as AxiosRequestConfig | undefined
+        const hadAuthHeader = !!(config && (config.headers as AxiosRequestHeaders)?.['Authorization'])
+
+        if (status === 401 && hadAuthHeader) {
         try {
           const newToken = await refreshAccessToken()
           auth.setToken(newToken)
