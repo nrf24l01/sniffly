@@ -3,25 +3,13 @@ import { ref, computed } from "vue";
 import { jwtDecode } from "jwt-decode";
 import { authService } from "@/service/auth";
 
-function isTokenExpired(token: string | null) {
-  if (!token) return true;
-  try {
-    const payload = (jwtDecode as any)(token);
-    if (!payload || typeof payload === "string") return true;
-    if (!payload.exp) return false;
-    return Date.now() >= payload.exp * 1000;
-  } catch (e) {
-    return true;
-  }
-}
-
 export const useAuthStore = defineStore("auth", () => {
   const accessToken = ref<string | null>(null);
   const user_id = ref<string | null>(null);
   const username = ref<string | null>(null);
 
   const isAuthenticated = computed(
-    () => !!accessToken.value && !isTokenExpired(accessToken.value)
+    () => !!accessToken.value
   );
   const authHeader = computed(() =>
     accessToken.value ? { Authorization: "Bearer " + accessToken.value } : {}
