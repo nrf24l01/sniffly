@@ -2,6 +2,9 @@
 import { computed, ref } from 'vue'
 import { useLogin } from '@/composables/login'
 import { useTheme } from '@/composables/useTheme'
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
 
 const nickname = ref('')
 const password = ref('')
@@ -45,7 +48,8 @@ async function onSubmit() {
 	if (!error.value) {
 		submissionAttempted.value = false
 		nicknameTouched.value = false
-		passwordTouched.value = false
+    passwordTouched.value = false
+    router.push({ name: 'Home' })
 	}
 }
 </script>

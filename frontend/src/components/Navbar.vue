@@ -17,6 +17,22 @@
             {{ link.name }}
           </router-link>
         </li>
+        <li>
+          <router-link
+            v-if="!auth.isAuthenticated"
+            :to="{ name: 'Login' }"
+            class="inline-flex items-center rounded-lg px-3 py-1.5 text-sm font-semibold hover:bg-gray-200 dark:hover:bg-gray-800 transition"
+          >
+            Login
+          </router-link>
+          <button
+            v-else
+            class="inline-flex items-center rounded-lg px-3 py-1.5 text-sm font-semibold hover:bg-gray-200 dark:hover:bg-gray-800 transition"
+            @click="logout"
+          >
+            Logout
+          </button>
+        </li>
       </ul>
       <!-- Theme toggle (desktop) -->
       <button
@@ -47,6 +63,23 @@
             {{ link.name }}
           </router-link>
         </li>
+        <li>
+          <router-link
+            v-if="!auth.isAuthenticated"
+            :to="{ name: 'Login' }"
+            class="block py-2 hover:text-blue-200 dark:hover:text-blue-300"
+            @click="mobileMenuOpen = false"
+          >
+            Login
+          </router-link>
+          <button
+            v-else
+            class="block w-full text-left py-2 hover:text-blue-200 dark:hover:text-blue-300"
+            @click="logout(); mobileMenuOpen = false"
+          >
+            Logout
+          </button>
+        </li>
       </ul>
       <div class="px-4 py-3 border-t border-blue-600">
         <button
@@ -68,15 +101,24 @@ import { ref } from 'vue'
 import { useTheme } from '../composables/useTheme'
 import { MoonIcon as OutlineMoonIcon } from "@heroicons/vue/24/outline"
 import { MoonIcon as SolidMoonIcon } from "@heroicons/vue/24/solid"
+import { useAuthStore } from '@/stores/auth'
+import { useRouter } from 'vue-router'
 
 const mobileMenuOpen = ref(false)
 
 const { theme, toggleTheme } = useTheme()
 
+const auth = useAuthStore()
+const router = useRouter()
+
 const navLinks = [
   { name: 'Home', routeName: 'Home' },
-  { name: 'Login', routeName: 'Login' }
 ]
+
+function logout() {
+  auth.logout()
+  router.push({ name: 'Login' })
+}
 
 const toggleMobileMenu = () => {
     mobileMenuOpen.value = !mobileMenuOpen.value
