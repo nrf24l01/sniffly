@@ -6,12 +6,19 @@ import BarChart from '@/components/charts/BarChart.vue'
 import StatCard from '@/components/ui/StatCard.vue'
 import ViewSwitch from '@/components/ui/ViewSwitch.vue'
 
-import { useDashboard, type RangePreset, type WidgetMode } from '@/composables/useDashboard'
+import { useDashboard, type WidgetMode } from '@/composables/useDashboard'
+import type { RangePreset } from '@/types/range'
+import { useDashboardDerived } from '@/composables/useDashboardDerived'
 import { formatBytes, formatNumber, formatDateTime } from '@/utils/format'
 
 const {
   preset,
   range,
+  rangeError,
+  fromExpr,
+  toExpr,
+  absoluteFromMs,
+  absoluteToMs,
   trafficMode,
   domainsMode,
   countriesMode,
@@ -30,197 +37,82 @@ const {
   loadingTables,
   error,
   loadCharts,
-  ensureTable
+  ensureTable,
+  applyExprRange,
+  applyAbsoluteRange
 } = useDashboard()
 
 const presets = ref<RangePreset[]>(['1h', '6h', '24h', '7d'])
+const customOpen = ref(false)
 const selectedDevice = computed(() => devices.value.find(d => d.mac === selectedMac.value) ?? null)
 
-// Chart data builders (/charts)
-// trafficSeries declared later after padding helper
-
-const topDomainsChart = computed(() => {
-  const mac = selectedMac.value
-  const buckets = domainsChart.value?.find(x => x.device.mac === mac)?.stats ?? []
-  const agg = new Map<string, number>()
-  for (const b of buckets) {
-    for (const [domain, count] of Object.entries(b.domains ?? {})) {
-      agg.set(domain, (agg.get(domain) ?? 0) + (count ?? 0))
-    }
-  }
-  return Array.from(agg.entries())
-    .map(([key, value]) => ({ key, value }))
-    .sort((a, b) => b.value - a.value)
-    .slice(0, 12)
-})
-
-const topCountriesChart = computed(() => {
-  const mac = selectedMac.value
-  const buckets = countriesChart.value?.find(x => x.device.mac === mac)?.stats ?? []
-  const agg = new Map<string, number>()
-  for (const b of buckets) {
-    const countries = b.countries
-    if (Array.isArray(countries)) {
-      for (const c of countries) agg.set(c, (agg.get(c) ?? 0) + 1)
-    } else if (countries && typeof countries === 'object') {
-      for (const [c, count] of Object.entries(countries as Record<string, number | undefined>)) {
-        agg.set(c, (agg.get(c) ?? 0) + (count ?? 0))
-      }
-    }
-  }
-  return Array.from(agg.entries())
-    .map(([key, value]) => ({ key, value }))
-    .sort((a, b) => b.value - a.value)
-    .slice(0, 10)
-})
-
-const topProtosChart = computed(() => {
-  const mac = selectedMac.value
-  const buckets = protosChart.value?.find(x => x.device.mac === mac)?.stats ?? []
-  const agg = new Map<string, number>()
-  for (const b of buckets) {
-    const protos = b.protos
-    if (Array.isArray(protos)) {
-      for (const p of protos) agg.set(p, (agg.get(p) ?? 0) + 1)
-    } else if (protos && typeof protos === 'object') {
-      for (const [p, count] of Object.entries(protos as Record<string, number | undefined>)) {
-        agg.set(p, (agg.get(p) ?? 0) + (count ?? 0))
-      }
-    }
-  }
-  return Array.from(agg.entries())
-    .map(([key, value]) => ({ key, value }))
-    .sort((a, b) => b.value - a.value)
-    .slice(0, 10)
-})
-
-function buildSeriesFromBuckets(
-  buckets: Array<{ bucket: number }>,
-  entries: (bucket: any) => Array<[string, number]>,
-  topN = 6
-): Array<{ name: string; data: [number, number][] }> {
-  const totals = new Map<string, number>()
-  const bucketMaps = new Map<number, Map<string, number>>()
-
-  for (const b of buckets) {
-    const map = new Map<string, number>()
-    for (const [k, v] of entries(b)) {
-      const num = Number(v ?? 0)
-      map.set(k, num)
-      totals.set(k, (totals.get(k) ?? 0) + num)
-    }
-    bucketMaps.set(b.bucket, map)
-  }
-
-  const topKeys = Array.from(totals.entries())
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, topN)
-    .map(([k]) => k)
-
-  const allBuckets = new Set<number>()
-  for (const b of buckets) allBuckets.add(b.bucket)
-  allBuckets.add(Math.floor(range.value.fromMs / 1000))
-  allBuckets.add(Math.floor(range.value.toMs / 1000))
-  const timeline = Array.from(allBuckets.values()).sort((a, b) => a - b)
-
-  return topKeys.map(key => ({
-    name: key,
-    data: timeline.map(t => {
-      const val = bucketMaps.get(t)?.get(key) ?? 0
-      return [t * 1000, val] as [number, number]
-    })
-  }))
+function toDatetimeLocal(ms: number) {
+  const d = new Date(ms)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
-const domainsTimelineSeries = computed<Array<{ name: string; data: [number, number][] }>>(() => {
-  const mac = selectedMac.value
-  const buckets = domainsChart.value?.find(x => x.device.mac === mac)?.stats ?? []
-  return buildSeriesFromBuckets(buckets, b => Object.entries(b.domains ?? {}).map(([k, v]) => [k, Number(v ?? 0)]))
-})
-
-const countriesTimelineSeries = computed<Array<{ name: string; data: [number, number][] }>>(() => {
-  const mac = selectedMac.value
-  const buckets = countriesChart.value?.find(x => x.device.mac === mac)?.stats ?? []
-  return buildSeriesFromBuckets(
-    buckets,
-    b => {
-      const arr = Array.isArray(b.countries) ? b.countries : Object.keys(b.countries ?? {})
-      return arr.map((k: string) => [k, 1])
-    },
-    8
-  )
-})
-
-const protosTimelineSeries = computed<Array<{ name: string; data: [number, number][] }>>(() => {
-  const mac = selectedMac.value
-  const buckets = protosChart.value?.find(x => x.device.mac === mac)?.stats ?? []
-  return buildSeriesFromBuckets(
-    buckets,
-    b => {
-      const arr = Array.isArray(b.protos) ? b.protos : Object.keys(b.protos ?? {})
-      return arr.map((k: string) => [k, 1])
-    },
-    8
-  )
-})
-
-// Ensure traffic series also spans full range
-function padPoints(points: Array<[number, number]>): Array<[number, number]> {
-  const fromMs = range.value.fromMs
-  const toMs = range.value.toMs
-  const pts = [...points].sort((a, b) => a[0] - b[0]) as Array<[number, number]>
-  if (pts.length === 0) return [[fromMs, 0], [toMs, 0]]
-  const first = pts[0]
-  const last = pts[pts.length - 1]
-  if (first && first[0] > fromMs) pts.unshift([fromMs, 0])
-  if (last && last[0] < toMs) pts.push([toMs, 0])
-  return pts
+function parseDatetimeLocal(value: string) {
+  // value: YYYY-MM-DDTHH:mm
+  const m = value.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/)
+  if (!m) return null
+  const year = Number(m[1])
+  const month = Number(m[2]) - 1
+  const day = Number(m[3])
+  const hour = Number(m[4])
+  const minute = Number(m[5])
+  const dt = new Date(year, month, day, hour, minute, 0, 0)
+  const t = dt.getTime()
+  return Number.isFinite(t) ? t : null
 }
 
-// update trafficSeries to pad
-const trafficSeries = computed<Array<{ name: string; data: [number, number][] }>>(() => {
-  const mac = selectedMac.value
-  if (mac === null || mac === undefined) return []
-  const item = trafficChart.value.find(x => x.device.mac === mac)
-  if (!item) return []
+const fromLocal = ref('')
+const toLocal = ref('')
 
-  const up: Array<[number, number]> = []
-  const down: Array<[number, number]> = []
-  for (const b of item.stats) {
-    const t = b.bucket * 1000
-    up.push([t, b.up_bytes])
-    down.push([t, b.down_bytes])
-  }
+watch(
+  range,
+  r => {
+    fromLocal.value = toDatetimeLocal(r.fromMs)
+    toLocal.value = toDatetimeLocal(r.toMs)
+  },
+  { immediate: true }
+)
 
-  return [
-    { name: 'Up', data: padPoints(up) },
-    { name: 'Down', data: padPoints(down) }
-  ]
+watch(rangeError, e => {
+  if (e) customOpen.value = true
 })
 
-// Table helpers (/tables)
-function topFromTable(stats: Record<string, number> | undefined, limit = 30) {
-  if (!stats) return [] as Array<{ key: string; value: number }>
-  return Object.entries(stats)
-    .map(([key, value]) => ({ key, value }))
-    .sort((a, b) => b.value - a.value)
-    .slice(0, limit)
+function applyAbsoluteFromInputs() {
+  const fromMs = parseDatetimeLocal(fromLocal.value)
+  const toMs = parseDatetimeLocal(toLocal.value)
+  if (fromMs == null || toMs == null) return
+  // Keep text inputs in sync with calendar selection (parser accepts YYYY-MM-DDTHH:mm).
+  fromExpr.value = fromLocal.value
+  toExpr.value = toLocal.value
+  applyAbsoluteRange(fromMs, toMs)
 }
 
-const domainsRowsTable = computed(() => {
-  const mac = selectedMac.value
-  const stats = domainsTable.value?.find(x => x.device.mac === mac)?.stats
-  return topFromTable(stats, 30)
-})
-const countriesRowsTable = computed(() => {
-  const mac = selectedMac.value
-  const stats = countriesTable.value?.find(x => x.device.mac === mac)?.stats
-  return topFromTable(stats, 30)
-})
-const protosRowsTable = computed(() => {
-  const mac = selectedMac.value
-  const stats = protosTable.value?.find(x => x.device.mac === mac)?.stats
-  return topFromTable(stats, 30)
+const {
+  topDomainsChart,
+  topCountriesChart,
+  topProtosChart,
+  trafficSeries,
+  domainsTimelineSeries,
+  countriesTimelineSeries,
+  protosTimelineSeries,
+  companiesTimelineSeries,
+  domainsRowsTable,
+  countriesRowsTable,
+  protosRowsTable
+} = useDashboardDerived({
+  selectedMac,
+  trafficChart,
+  domainsChart,
+  countriesChart,
+  protosChart,
+  domainsTable,
+  countriesTable,
+  protosTable
 })
 
 // Stats cards
@@ -244,7 +136,7 @@ function onSwitch(widget: 'traffic' | 'domains' | 'countries' | 'protos', m: Wid
 
 <template>
   <main class="h-full overflow-auto bg-gradient-to-b from-green-50 to-white dark:from-slate-950 dark:to-slate-900">
-    <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+    <div class="mx-auto w-full max-w-none px-4 py-6 sm:px-6 lg:px-8">
       <header class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 class="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-50">Dashboard</h1>
@@ -258,9 +150,17 @@ function onSwitch(widget: 'traffic' | 'domains' | 'countries' | 'protos', m: Wid
               :key="p"
               class="px-3 py-1.5 text-sm font-medium rounded-lg transition"
               :class="preset === p ? 'bg-green-600 text-white shadow-sm' : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800/60'"
-              @click="preset = p"
+              @click="preset = p; customOpen = false"
             >
               {{ p }}
+            </button>
+
+            <button
+              class="px-3 py-1.5 text-sm font-medium rounded-lg transition"
+              :class="customOpen ? 'bg-slate-900 text-white shadow-sm dark:bg-slate-50 dark:text-slate-900' : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800/60'"
+              @click="customOpen = true"
+            >
+              Своё
             </button>
           </div>
 
@@ -273,6 +173,66 @@ function onSwitch(widget: 'traffic' | 'domains' | 'countries' | 'protos', m: Wid
           </button>
         </div>
       </header>
+
+      <section v-if="customOpen" class="mt-4 grid gap-3 md:grid-cols-2">
+        <div class="rounded-2xl border border-slate-200/70 bg-white/70 p-3 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-900/50">
+          <div class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">Range (Grafana-style)</div>
+          <div class="mt-2 grid gap-2 sm:grid-cols-2">
+            <input
+              v-model="fromExpr"
+              class="w-full rounded-xl border border-slate-200/70 bg-white/70 px-3 py-2 text-sm text-slate-900 shadow-sm backdrop-blur outline-none transition focus:border-green-500 focus:ring-2 focus:ring-green-500/20 dark:border-slate-800 dark:bg-slate-900/40 dark:text-slate-50"
+              placeholder="from: now-24h"
+            />
+            <input
+              v-model="toExpr"
+              class="w-full rounded-xl border border-slate-200/70 bg-white/70 px-3 py-2 text-sm text-slate-900 shadow-sm backdrop-blur outline-none transition focus:border-green-500 focus:ring-2 focus:ring-green-500/20 dark:border-slate-800 dark:bg-slate-900/40 dark:text-slate-50"
+              placeholder="to: now"
+            />
+          </div>
+          <div class="mt-2 flex items-center justify-between gap-2">
+            <div class="text-xs text-slate-500 dark:text-slate-300">Units: y, m(month), w, d, h, min, s</div>
+            <button
+              class="inline-flex items-center justify-center rounded-xl border border-slate-200/70 bg-white/70 px-3 py-2 text-sm font-semibold text-slate-900 shadow-sm backdrop-blur transition hover:bg-white dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-50 dark:hover:bg-slate-900"
+              :disabled="refreshing"
+              @click="applyExprRange"
+            >
+              Apply
+            </button>
+          </div>
+        </div>
+
+        <div class="rounded-2xl border border-slate-200/70 bg-white/70 p-3 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-900/50">
+          <div class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">Range (Calendar)</div>
+          <div class="mt-2 grid gap-2 sm:grid-cols-2">
+            <input
+              v-model="fromLocal"
+              type="datetime-local"
+              class="w-full rounded-xl border border-slate-200/70 bg-white/70 px-3 py-2 text-sm text-slate-900 shadow-sm backdrop-blur outline-none transition focus:border-green-500 focus:ring-2 focus:ring-green-500/20 dark:border-slate-800 dark:bg-slate-900/40 dark:text-slate-50"
+            />
+            <input
+              v-model="toLocal"
+              type="datetime-local"
+              class="w-full rounded-xl border border-slate-200/70 bg-white/70 px-3 py-2 text-sm text-slate-900 shadow-sm backdrop-blur outline-none transition focus:border-green-500 focus:ring-2 focus:ring-green-500/20 dark:border-slate-800 dark:bg-slate-900/40 dark:text-slate-50"
+            />
+          </div>
+          <div class="mt-2 flex items-center justify-end">
+            <button
+              class="inline-flex items-center justify-center rounded-xl border border-slate-200/70 bg-white/70 px-3 py-2 text-sm font-semibold text-slate-900 shadow-sm backdrop-blur transition hover:bg-white dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-50 dark:hover:bg-slate-900"
+              :disabled="refreshing"
+              @click="applyAbsoluteFromInputs"
+            >
+              Apply
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section
+        v-if="customOpen && rangeError"
+        class="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200"
+      >
+        {{ rangeError }}
+      </section>
 
       <section
         v-if="error"
@@ -304,7 +264,7 @@ function onSwitch(widget: 'traffic' | 'domains' | 'countries' | 'protos', m: Wid
         </div>
       </section>
 
-      <section class="mt-6 grid gap-4 lg:grid-cols-2">
+      <section class="mt-6 grid gap-4 md:grid-cols-2">
         <div class="rounded-2xl border border-slate-200/70 bg-white/70 p-3 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-900/50">
           <div class="flex items-start justify-between gap-3 px-1 pb-2">
             <div>
@@ -400,7 +360,7 @@ function onSwitch(widget: 'traffic' | 'domains' | 'countries' | 'protos', m: Wid
         </div>
       </section>
 
-      <section class="mt-4 grid gap-4 lg:grid-cols-2">
+      <section class="mt-4 grid gap-4 md:grid-cols-2">
         <div class="rounded-2xl border border-slate-200/70 bg-white/70 p-3 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-900/50">
           <div class="flex items-start justify-between gap-3 px-1 pb-2">
             <div>
@@ -489,6 +449,28 @@ function onSwitch(widget: 'traffic' | 'domains' | 'countries' | 'protos', m: Wid
               </tbody>
             </table>
           </div>
+        </div>
+
+        <div class="rounded-2xl border border-slate-200/70 bg-white/70 p-3 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-900/50">
+          <div class="flex items-start justify-between gap-3 px-1 pb-2">
+            <div>
+              <div class="text-sm font-semibold text-slate-900 dark:text-slate-50">Companies</div>
+              <div class="text-xs text-slate-500 dark:text-slate-300">Chart: per-company requests over time (from /charts/countries)</div>
+            </div>
+          </div>
+
+          <LineChart
+            title=""
+            subtitle=""
+            xAxisName="time"
+            yAxisName="requests"
+            :series="companiesTimelineSeries"
+            :loading="loadingCharts"
+            :stacked="true"
+            :xMin="range.fromMs"
+            :xMax="range.toMs"
+            height="320px"
+          />
         </div>
       </section>
     </div>

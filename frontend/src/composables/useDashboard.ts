@@ -1,36 +1,150 @@
 import { computed, onMounted, ref, watch } from 'vue'
+import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useRangeStore } from '@/stores/range'
 
 import { chartsService, type DeviceDomainItem, type DeviceTrafficItem, type DeviceCountryItem, type DeviceProtoItem } from '@/service/charts'
 import { tablesService, type DeviceTrafficSummary, type DeviceDomainSummary, type DeviceCountrySummary, type DeviceProtoSummary } from '@/service/tables'
 
-export type RangePreset = '1h' | '6h' | '24h' | '7d'
+import type { RangeMode, RangePreset } from '@/types/range'
+
 export type WidgetMode = 'chart' | 'table'
 
 export function useDashboard() {
   const router = useRouter()
   const auth = useAuthStore()
 
-  const preset = ref<RangePreset>('24h')
-  const nowMs = () => Date.now()
+  const rangeStore = useRangeStore()
+  const { preset, rangeMode, fromExpr, toExpr, absoluteFromMs, absoluteToMs } = storeToRefs(rangeStore)
 
-  function presetToRange(p: RangePreset) {
-    const toMs = nowMs()
-    const deltaMs =
-      p === '1h'
-        ? 3600_000
-        : p === '6h'
-          ? 6 * 3600_000
-          : p === '24h'
-            ? 24 * 3600_000
-            : 7 * 24 * 3600_000
-    return { fromMs: toMs - deltaMs, toMs }
+  const nowMs = () => Date.now()
+  const rangeError = ref<string | null>(null)
+
+  function presetToExpr(p: RangePreset) {
+    return p === '1h' ? 'now-1h' : p === '6h' ? 'now-6h' : p === '24h' ? 'now-24h' : 'now-7d'
   }
 
-  const range = ref(presetToRange(preset.value))
+  function parseNowExpr(exprRaw: string, baseMs: number) {
+    const expr = exprRaw.trim()
+    if (!expr) throw new Error('Empty time expression')
+
+    // Allow unix seconds/milliseconds
+    if (/^\d{10}$/.test(expr)) return Number(expr) * 1000
+    if (/^\d{13}$/.test(expr)) return Number(expr)
+
+    // Allow ISO-like date strings
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(expr)) {
+      const d = new Date(expr)
+      if (!Number.isFinite(d.getTime())) throw new Error(`Invalid date: ${expr}`)
+      return d.getTime()
+    }
+
+    if (!expr.startsWith('now')) throw new Error(`Expression must start with "now" (got: ${expr})`)
+
+    // Supported units:
+    // y (years), m (months), w (weeks), d (days), h (hours), min (minutes), s (seconds)
+    // Note: we treat "m" as months; use "min" for minutes.
+    const rest = expr.slice(3)
+    // IMPORTANT: put "min" before "m" so "now-2min" is not parsed as "now-2m" + "in".
+    const re = /([+-])(\d+)(y|min|m|w|d|h|s)/g
+
+    let date = new Date(baseMs)
+    let match: RegExpExecArray | null
+    let consumed = 0
+    while ((match = re.exec(rest))) {
+      consumed += match[0].length
+      const sign = match[1] === '-' ? -1 : 1
+      const value = Number(match[2])
+      const unit = match[3]
+
+      if (!Number.isFinite(value) || value < 0) throw new Error(`Invalid amount in ${match[0]}`)
+
+      if (unit === 'y') date.setFullYear(date.getFullYear() + sign * value)
+      else if (unit === 'm') date.setMonth(date.getMonth() + sign * value)
+      else {
+        const ms =
+          unit === 'w'
+            ? value * 7 * 24 * 3600_000
+            : unit === 'd'
+              ? value * 24 * 3600_000
+              : unit === 'h'
+                ? value * 3600_000
+                : unit === 'min'
+                  ? value * 60_000
+                  : value * 1000
+        date = new Date(date.getTime() + sign * ms)
+      }
+    }
+
+    if (rest.trim().length !== consumed) {
+      // Allow empty rest
+      if (rest.trim().length !== 0) throw new Error(`Invalid expression tail: ${rest}`)
+    }
+
+    return date.getTime()
+  }
+
+  function setRange(fromMs: number, toMs: number) {
+    if (!Number.isFinite(fromMs) || !Number.isFinite(toMs)) throw new Error('Invalid range')
+    if (fromMs >= toMs) throw new Error('from must be < to')
+    range.value = { fromMs, toMs }
+  }
+
+  const range = ref({ fromMs: nowMs() - 24 * 3600_000, toMs: nowMs() })
+
+  function applyExprRange() {
+    rangeError.value = null
+    try {
+      const base = nowMs()
+      const fromMs = parseNowExpr(fromExpr.value, base)
+      const toMs = parseNowExpr(toExpr.value, base)
+      setRange(fromMs, toMs)
+      rangeMode.value = 'expr'
+      absoluteFromMs.value = fromMs
+      absoluteToMs.value = toMs
+    } catch (e: any) {
+      rangeError.value = e?.message ?? String(e)
+    }
+  }
+
+  function applyAbsoluteRange(fromMs: number, toMs: number) {
+    rangeError.value = null
+    try {
+      setRange(fromMs, toMs)
+      rangeMode.value = 'absolute'
+      absoluteFromMs.value = fromMs
+      absoluteToMs.value = toMs
+    } catch (e: any) {
+      rangeError.value = e?.message ?? String(e)
+    }
+  }
+
+  // Initialize range from persisted Pinia state.
+  ;(() => {
+    if (rangeMode.value === 'absolute' && absoluteFromMs.value != null && absoluteToMs.value != null) {
+      applyAbsoluteRange(absoluteFromMs.value, absoluteToMs.value)
+      return
+    }
+
+    if (rangeMode.value === 'expr') {
+      applyExprRange()
+      return
+    }
+
+    // preset (default)
+    fromExpr.value = presetToExpr(preset.value)
+    toExpr.value = 'now'
+    applyExprRange()
+    rangeMode.value = 'preset'
+  })()
+
+  // keep presets as shortcuts
   watch(preset, p => {
-    range.value = presetToRange(p)
+    fromExpr.value = presetToExpr(p)
+    toExpr.value = 'now'
+    applyExprRange()
+    rangeMode.value = 'preset'
   })
 
   const fromSeconds = computed(() => Math.floor(range.value.fromMs / 1000))
@@ -149,6 +263,12 @@ export function useDashboard() {
     // range
     preset,
     range,
+    rangeMode,
+    rangeError,
+    fromExpr,
+    toExpr,
+    absoluteFromMs,
+    absoluteToMs,
     fromSeconds,
     toSeconds,
 
@@ -180,6 +300,8 @@ export function useDashboard() {
 
     // actions
     loadCharts,
-    ensureTable
+    ensureTable,
+    applyExprRange,
+    applyAbsoluteRange
   }
 }

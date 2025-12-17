@@ -17,6 +17,8 @@ const props = defineProps<{
   stacked?: boolean
 }>()
 
+const updateOptions = { notMerge: true, lazyUpdate: true } as const
+
 const option = computed(() => {
   return {
     backgroundColor: 'transparent',
@@ -70,6 +72,13 @@ const option = computed(() => {
       {{ emptyText ?? 'No data for selected period' }}
     </div>
 
-    <VChart v-else class="w-full" :style="{ height: height ?? '320px' }" :option="option" autoresize />
+    <VChart
+      v-else
+      class="w-full"
+      :style="{ height: height ?? '320px' }"
+      :option="option"
+      :update-options="updateOptions"
+      autoresize
+    />
   </div>
 </template>
