@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
@@ -59,6 +60,7 @@ func (h *Handler) GetChartsCountriesHandler(c echo.Context) error {
 		End:   req.To,
 	})
 	if err != nil {
+		log.Printf("GetCountryChartData error: %v", err)
 		return c.JSON(http.StatusInternalServerError, echokitSchemas.DefaultInternalErrorResponse)
 	}
 

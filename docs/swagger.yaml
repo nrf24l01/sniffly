@@ -146,13 +146,15 @@ components:
           type: integer
           format: int64
         countries:
-          type: array
-          items:
-            type: string
+          type: object
+          additionalProperties:
+            type: integer
+            format: uint64
         companies:
-          type: array
-          items:
-            type: string
+          type: object
+          additionalProperties:
+            type: integer
+            format: uint64
         req_count:
           type: integer
           format: uint64
@@ -174,13 +176,10 @@ components:
           type: integer
           format: int64
         protos:
-          type: array
-          items:
-            type: string
-        companies:
-          type: array
-          items:
-            type: string
+          type: object
+          additionalProperties:
+            type: integer
+            format: uint64
         req_count:
           type: integer
           format: uint64

@@ -127,7 +127,7 @@ func cacheUncachedData[T any](
 	for date, items := range byDay {
 		start_of_day := date.Unix()
 		end_of_day := date.Add(24 * time.Hour).Unix() - 1
-		
+
 		if version, ok := cacheVersions[date]; ok {
 			err := setCacheEntryForInterval(config, rdb, TimeRange{Start: start_of_day, End: end_of_day}, items, version, prefix)
 			if err != nil {
@@ -250,6 +250,34 @@ func GetCountryChartData(db *gorm.DB, rdb *redisutil.RedisClient, config *core.C
 		func(models []analyzerModels.DeviceCountry5s) []CountryChartData {
 			var result []CountryChartData
 			for _, entry := range models {
+				var countriesMap map[string]uint64
+				var companiesMap map[string]uint64
+
+				if err := json.Unmarshal([]byte(entry.Countries), &countriesMap); err != nil {
+					// try fallback: maybe it's an array of strings -> convert to map with count 1
+					var arr []string
+					if err2 := json.Unmarshal([]byte(entry.Countries), &arr); err2 != nil {
+						log.Printf("Error unmarshalling countries: %v", err)
+						continue
+					}
+					countriesMap = make(map[string]uint64, len(arr))
+					for _, k := range arr {
+						countriesMap[k] = 1
+					}
+				}
+
+				if err := json.Unmarshal([]byte(entry.Companies), &companiesMap); err != nil {
+					var arr []string
+					if err2 := json.Unmarshal([]byte(entry.Companies), &arr); err2 != nil {
+						log.Printf("Error unmarshalling companies: %v", err)
+						continue
+					}
+					companiesMap = make(map[string]uint64, len(arr))
+					for _, k := range arr {
+						companiesMap[k] = 1
+					}
+				}
+
 				result = append(result, CountryChartData{
 					Device: Device{
 						MAC:      entry.Device.MAC,
@@ -259,8 +287,8 @@ func GetCountryChartData(db *gorm.DB, rdb *redisutil.RedisClient, config *core.C
 					},
 					Stats: []CountryStat{{
 						Bucket:    entry.Bucket.Unix(),
-						Countries: entry.Countries,
-						Companies: entry.Companies,
+						Countries: countriesMap,
+						Companies: companiesMap,
 						ReqCount:  entry.Requests,
 					}},
 				})

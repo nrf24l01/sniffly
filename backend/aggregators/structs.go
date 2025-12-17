@@ -47,10 +47,10 @@ type ProtoChartData struct {
 }
 
 type CountryStat struct {
-	Bucket    int64    `json:"bucket"`
-	Countries []string `json:"countries"`
-	Companies []string `json:"companies"`
-	ReqCount  uint64   `json:"req_count"`
+	Bucket    int64             `json:"bucket"`
+	Countries map[string]uint64 `json:"countries"`
+	Companies map[string]uint64 `json:"companies"`
+	ReqCount  uint64            `json:"req_count"`
 }
 
 type CountryChartData struct {

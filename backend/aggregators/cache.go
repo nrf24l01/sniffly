@@ -22,25 +22,97 @@ func getCacheEntriesPerInterval[T any](config *core.Config, rdb *redisutil.Redis
 
 	for date := start_date; !date.After(end_date); date = date.Add(24 * time.Hour) {
 		cache_key := config.BackendConfig.CacheDayAggPrefix + prefix + date.Format("2006_01_02")
-		var day_cache CacheValue[T]
 		res := rdb.Client.Get(rdb.Ctx, cache_key)
 		if res.Err() == nil {
 			val, err := res.Bytes()
 			if err != nil {
 				return nil, nil, err
 			}
-			err = json.Unmarshal(val, &day_cache)
-			if err != nil {
+
+			// Unmarshal into raw to allow tolerant conversion of older formats
+			var raw struct {
+				Version int                `json:"version"`
+				Data    []json.RawMessage `json:"data_per_time"`
+			}
+			if err := json.Unmarshal(val, &raw); err != nil {
 				return nil, nil, err
 			}
+
 			// Check version
 			expected_version, ok := cacheVersions[date]
-			if !ok || day_cache.Version != expected_version {
+			if !ok || raw.Version != expected_version {
 				continue
 			}
 
-			days_caches[date] = day_cache.Data
-			intervals = append(intervals, date)
+			var dayData []T
+			for _, itemRaw := range raw.Data {
+				// Try direct unmarshal into T
+				var item T
+				if err := json.Unmarshal(itemRaw, &item); err == nil {
+					dayData = append(dayData, item)
+					continue
+				}
+
+				// Fallback: try to normalize possible old formats where
+				// countries/companies could be arrays instead of maps.
+				var m map[string]json.RawMessage
+				if err := json.Unmarshal(itemRaw, &m); err != nil {
+					// cannot parse this item, skip
+					continue
+				}
+
+				// normalize stats if present
+				if statsRaw, ok := m["stats"]; ok {
+					var statsArr []map[string]json.RawMessage
+					if err := json.Unmarshal(statsRaw, &statsArr); err == nil {
+						for si, stat := range statsArr {
+							// countries
+							if cRaw, ok := stat["countries"]; ok {
+								// if it's an array, convert to map[string]uint64
+								var arr []string
+								if err := json.Unmarshal(cRaw, &arr); err == nil {
+									cmap := make(map[string]uint64, len(arr))
+									for _, k := range arr {
+										cmap[k] = cmap[k] + 1
+									}
+									// replace with object
+									b, _ := json.Marshal(cmap)
+									statsArr[si]["countries"] = b
+								}
+							}
+							// companies
+							if cRaw, ok := stat["companies"]; ok {
+								var arr []string
+								if err := json.Unmarshal(cRaw, &arr); err == nil {
+									cmap := make(map[string]uint64, len(arr))
+									for _, k := range arr {
+										cmap[k] = cmap[k] + 1
+									}
+									b, _ := json.Marshal(cmap)
+									statsArr[si]["companies"] = b
+								}
+							}
+						}
+						// put back normalized stats
+						if b, err := json.Marshal(statsArr); err == nil {
+							m["stats"] = b
+						}
+					}
+				}
+
+				// marshal modified map back to bytes and unmarshal into T
+				if finalB, err := json.Marshal(m); err == nil {
+					var finalItem T
+					if err := json.Unmarshal(finalB, &finalItem); err == nil {
+						dayData = append(dayData, finalItem)
+					}
+				}
+			}
+
+			if len(dayData) > 0 {
+				days_caches[date] = dayData
+				intervals = append(intervals, date)
+			}
 		}
 	}
 
