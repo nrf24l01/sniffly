@@ -6,25 +6,25 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	"github.com/lib/pq"
 )
 
 func (c *CHBatch) Insert(ctx context.Context, b *Batcher) error {
-	insertAnyStat(ctx, "devices_traffics_5s", c.DeviceTraffics, b)
-	insertAnyStat(ctx, "devices_domains_5s", c.DeviceDomains, b)
-	insertAnyStat(ctx, "devices_countries_5s", c.DeviceCountries, b)
-	insertAnyStat(ctx, "devices_protos_5s", c.DeviceProtos, b)
+	// Use typed insert helper (fixed table names inside) to avoid dynamic SQL identifiers
+	insertAnyStat(ctx, c.DeviceTraffics, b)
+	insertAnyStat(ctx, c.DeviceDomains, b)
+	insertAnyStat(ctx, c.DeviceCountries, b)
+	insertAnyStat(ctx, c.DeviceProtos, b)
 
 	return nil
 }
 
-func insertAnyStat[T DeviceStatLike](ctx context.Context, table_name string, records []T, b *Batcher) error {
+func insertAnyStat[T DeviceStatLike](ctx context.Context, records []T, b *Batcher) error {
 	if len(records) == 0 {
 		return nil
 	}
 
 	per_device_id := aggregatePerDeviceID(records)
-	
+
 	for device_id, records_per_device := range per_device_id {
 		insertStatPerDevice(ctx, records_per_device, b, device_id)
 	}
@@ -121,17 +121,32 @@ func insertStatPerDevice[T DeviceStatLike](ctx context.Context, records []T, b *
 		for i, r := range countries {
 			base := i * 5
 			vals = append(vals, fmt.Sprintf("($%d,$%d,$%d,$%d,$%d)", base+1, base+2, base+3, base+4, base+5))
-			args = append(args, r.Bucket, r.DeviceID, pq.StringArray(r.Company), pq.StringArray(r.Country), r.Requests)
+			// store JSONB fields as strings and keep order: companies, countries
+			args = append(args, r.Bucket, r.DeviceID, string(r.Company), string(r.Country), r.Requests)
 		}
 		q := fmt.Sprintf(`INSERT INTO devices_countries_5s (%s) VALUES %s
 			ON CONFLICT (device_id, bucket) DO UPDATE
 			SET companies = (
-				  SELECT ARRAY(SELECT DISTINCT x FROM unnest(coalesce(devices_countries_5s.companies, '{}') || EXCLUDED.companies) AS x)
-			  ),
-			  countries = (
-				  SELECT ARRAY(SELECT DISTINCT x FROM unnest(coalesce(devices_countries_5s.countries, '{}') || EXCLUDED.countries) AS x)
-			  ),
-			  requests = devices_countries_5s.requests + EXCLUDED.requests`, cols, strings.Join(vals, ","))
+				SELECT jsonb_object_agg(k, to_jsonb(sum_v)) FROM (
+					SELECT k, sum(v::bigint) AS sum_v FROM (
+						SELECT key AS k, value AS v FROM jsonb_each_text(coalesce(devices_countries_5s.companies, '{}'::jsonb))
+						UNION ALL
+						SELECT key, value FROM jsonb_each_text(EXCLUDED.companies)
+					) x
+					GROUP BY k
+				) y
+			),
+			countries = (
+				SELECT jsonb_object_agg(k, to_jsonb(sum_v)) FROM (
+					SELECT k, sum(v::bigint) AS sum_v FROM (
+						SELECT key AS k, value AS v FROM jsonb_each_text(coalesce(devices_countries_5s.countries, '{}'::jsonb))
+						UNION ALL
+						SELECT key, value FROM jsonb_each_text(EXCLUDED.countries)
+					) x
+					GROUP BY k
+				) y
+			),
+			requests = devices_countries_5s.requests + EXCLUDED.requests`, cols, strings.Join(vals, ","))
 		if err := exec(q, args...); err != nil {
 			return err
 		}

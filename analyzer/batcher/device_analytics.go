@@ -24,8 +24,14 @@ func buildDeviceDomain(batch Batch, device_id uuid.UUID) (DeviceDomain, error) {
 	domains := make(map[string]uint64)
 	for _, b := range batch.Packets {
 		if b.Details.Type == snifpacket.SnifPacketTypeHTTP && b.Details.HTTP != nil {
+			if b.Details.HTTP.Host == "" {
+				continue
+			}
 			domains[b.Details.HTTP.Host] += 1
 		} else if b.Details.Type == snifpacket.SnifPacketTypeTLS && b.Details.TLS != nil {
+			if b.Details.TLS.Sni == "" {
+				continue
+			}
 			domains[b.Details.TLS.Sni] += 1
 		}
 	}
@@ -44,44 +50,39 @@ func buildDeviceDomain(batch Batch, device_id uuid.UUID) (DeviceDomain, error) {
 
 func (b *Batcher) buildDeviceCountryAndCompany(batch Batch, device_id uuid.UUID) (DeviceCountry, error) {
 	var dc DeviceCountry
-	all_ips := make([]string, 0)
 
-	for _, b := range batch.Packets {
-		all_ips = append(all_ips, b.DstIP)
+	countries := make(map[string]uint64)
+	companies := make(map[string]uint64)
+
+	for _, p := range batch.Packets {
+		country, company, err := geoip.CityCompanyFromIP(p.DstIP, b.RDB, b.CFG.AppConfig)
+		if err != nil {
+			log.Printf("Error looking up geoip info for IP %s: %v", p.DstIP, err)
+			continue
+		}
+		if country != "" {
+			countries[country] += 1
+		}
+		if company != "" {
+			companies[company] += 1
+		}
 	}
 
 	dc.Requests = uint64(len(batch.Packets))
 	dc.DeviceID = device_id
 	dc.Bucket = batch.From
-	
-	for _, ip := range all_ips {
-		county, company, err := geoip.CityCompanyFromIP(ip, b.RDB, b.CFG.AppConfig)
-		if err != nil {
-			log.Printf("Error looking up geoip info for IP %s: %v", ip, err)
-			continue
-		}
-		found := false
-		for _, c := range dc.Country {
-			if c == county {
-				found = true
-				break
-			}
-		}
-		if !found {
-			dc.Country = append(dc.Country, county)
-		}
 
-		found = false
-		for _, c := range dc.Company {
-			if c == company {
-				found = true
-				break
-			}
-		}
-		if !found {
-			dc.Company = append(dc.Company, company)
-		}
+	countryJSON, err := json.Marshal(countries)
+	if err != nil {
+		return DeviceCountry{}, err
 	}
+	companyJSON, err := json.Marshal(companies)
+	if err != nil {
+		return DeviceCountry{}, err
+	}
+
+	dc.Country = countryJSON
+	dc.Company = companyJSON
 
 	return dc, nil
 }

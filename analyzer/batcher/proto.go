@@ -24,8 +24,8 @@ type DeviceDomain struct {
 
 type DeviceCountry struct {
 	BaseDeviceStat
-	Country          []string
-	Company          []string
+	Country          []byte
+	Company          []byte
 }
 
 type DeviceProto struct {

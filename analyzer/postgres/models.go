@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/lib/pq"
 	"github.com/nrf24l01/go-web-utils/pg_kit"
 )
 
@@ -54,11 +53,11 @@ func (DeviceDomain5s) TableName() string {
 type DeviceCountry5s struct {
 	pg_kit.BaseModel
 
-	Bucket    time.Time       `gorm:"not null;primaryKey;uniqueIndex:idx_bucket_device"`
-	DeviceID  uuid.UUID       `gorm:"type:uuid;primaryKey;not null;uniqueIndex:idx_bucket_device"`
-	Companies pq.StringArray  `gorm:"type:text[]"`
-	Countries pq.StringArray  `gorm:"type:text[]"`
-	Requests  uint64          `gorm:"default:0"`
+	Bucket    time.Time `gorm:"not null;primaryKey;uniqueIndex:idx_bucket_device"`
+	DeviceID  uuid.UUID `gorm:"type:uuid;primaryKey;not null;uniqueIndex:idx_bucket_device"`
+	Companies string    `gorm:"type:jsonb;default:'{}'"`
+	Countries string    `gorm:"type:jsonb;default:'{}'"`
+	Requests  uint64    `gorm:"default:0"`
 
 	Device DeviceInfo `gorm:"foreignKey:DeviceID;references:ID;constraint:OnDelete:CASCADE"`
 }
