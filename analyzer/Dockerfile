@@ -15,7 +15,11 @@ FROM alpine:latest
 
 WORKDIR /app
 
-COPY --from=builder /app/main .
-RUN chmod +x ./main
+RUN apk add --no-cache tzdata
 
-CMD ["./main"]
+COPY --from=builder /app/main .
+COPY start.sh /app/start.sh
+RUN chmod +x ./main
+RUN chmod +x ./start.sh
+
+CMD ["./start.sh"]
