@@ -1,0 +1,51 @@
+name: Capturer build
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'capturer/**'
+      - '.github/workflows/capturer.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'capturer/**'
+      - '.github/workflows/capturer.yml'
+  workflow_dispatch:
+
+env:
+  LONG_IMAGE_TAG: ${{ github.sha }}
+
+jobs:
+  build-capturer:
+    name: Build Capturer
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set short hash
+        run: echo "IMAGE_TAG=$(echo $GITHUB_SHA | cut -c1-7)" >> $GITHUB_ENV
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $GITHUB_ACTOR --password-stdin
+
+      - name: Set REPO_NAME env variable
+        run: echo "REPO_NAME=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
+      - name: Extract binary from Docker image
+        run: |
+          docker create --name temp-container ghcr.io/${{ env.REPO_NAME }}/capturer:${{ env.IMAGE_TAG }}
+          docker cp temp-container:/app/main ./capturer-binary
+          docker rm temp-container
+
+      - name: Upload binary as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: capturer-binary
+          path: ./capturer-binary
+          retention-days: 30
