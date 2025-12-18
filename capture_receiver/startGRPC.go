@@ -9,6 +9,8 @@ import (
 	"github.com/nrf24l01/sniffly/capture_receiver/handler"
 	"github.com/nrf24l01/sniffly/capture_receiver/interceptors"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/health"
+	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/reflection"
 
@@ -34,6 +36,12 @@ func StartGRPCServer(cfg *core.AppConfig, packetGatewayServer *handler.PacketGat
 		}),
 	)
 	pb.RegisterPacketGatewayServer(server, packetGatewayServer)
+
+	if (cfg.CaptureConfig.PingEnabled) {
+		healthServer := health.NewServer()
+		healthServer.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
+		healthpb.RegisterHealthServer(server, healthServer)
+	}
 
 	log.Printf("gRPC server listening on %s, reflection enabled: %v", cfg.CaptureConfig.AppHost, cfg.CaptureConfig.ReflectionEnabled)
 	if cfg.CaptureConfig.ReflectionEnabled {

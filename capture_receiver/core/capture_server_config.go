@@ -8,8 +8,9 @@ import (
 
 type CaptureConfig struct {
 	ReflectionEnabled bool   `env:"CAPTURE_REFLECTION_ENABLED" envDefault:"false"`
-	AppHost 		  string `env:"CAPTURE_APP_HOST" envDefault:":50051"`
-	PacketsTopic	  string `env:"CAPTURE_PACKETS_TOPIC" envDefault:"sniffed_packets"`
+	AppHost 		      string `env:"CAPTURE_APP_HOST" envDefault:":50051"`
+	PacketsTopic	    string `env:"CAPTURE_PACKETS_TOPIC" envDefault:"sniffed_packets"`
+	PingEnabled       bool   `env:"CAPTURE_PING_ENABLED" envDefault:"false"`
 }
 
 
