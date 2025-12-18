@@ -54,3 +54,11 @@ jobs:
           name: capturer-binary
           path: ./capturer-binary
           retention-days: 30
+
+      - name: Create or update latest release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Latest build
+          files: ./capturer-binary
+          overwrite: true
