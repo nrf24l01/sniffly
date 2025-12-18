@@ -31,17 +31,22 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Login to GitHub Container Registry
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $GITHUB_ACTOR --password-stdin
+      - name: Build image locally with Buildx
+        uses: docker/build-push-action@v5
+        with:
+          context: capturer
+          file: capturer/Dockerfile
+          tags: |
+            capturer:latest
+          push: false
+          load: true
 
-      - name: Set REPO_NAME env variable
-        run: echo "REPO_NAME=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
-
-      - name: Extract binary from Docker image
+      - name: Extract binary from built image
         run: |
-          docker create --name temp-container ghcr.io/${{ env.REPO_NAME }}/capturer:${{ env.IMAGE_TAG }}
-          docker cp temp-container:/app/main ./capturer-binary
-          docker rm temp-container
+          IMAGE_NAME=capturer:latest
+          CONTAINER_ID=$(docker create $IMAGE_NAME)
+          docker cp $CONTAINER_ID:/app/main ./capturer-binary
+          docker rm $CONTAINER_ID
 
       - name: Upload binary as artifact
         uses: actions/upload-artifact@v4
