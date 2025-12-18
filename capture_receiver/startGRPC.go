@@ -1,8 +1,10 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/nrf24l01/sniffly/capture_receiver/core"
@@ -24,20 +26,35 @@ func StartGRPCServer(cfg *core.AppConfig, packetGatewayServer *handler.PacketGat
 	}
 
 	unaryInt, streamInt := interceptors.NewAuthInterceptors(packetGatewayServer.DB)
+
+	// Wrap interceptors to skip auth for health check/watch
+	wrappedUnary := func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+		if strings.HasSuffix(info.FullMethod, "Health/Check") || strings.Contains(info.FullMethod, "ServerReflection") {
+			return handler(ctx, req)
+		}
+		return unaryInt(ctx, req, info, handler)
+	}
+	wrappedStream := func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+		if strings.HasSuffix(info.FullMethod, "Health/Watch") || strings.Contains(info.FullMethod, "ServerReflection") {
+			return handler(srv, ss)
+		}
+		return streamInt(srv, ss, info, handler)
+	}
+
 	server := grpc.NewServer(
-		grpc.UnaryInterceptor(unaryInt),
-		grpc.StreamInterceptor(streamInt),
+		grpc.UnaryInterceptor(wrappedUnary),
+		grpc.StreamInterceptor(wrappedStream),
 		grpc.KeepaliveParams(keepalive.ServerParameters{
-			MaxConnectionIdle: 0,
-			MaxConnectionAge: 0,
+			MaxConnectionIdle:     0,
+			MaxConnectionAge:      0,
 			MaxConnectionAgeGrace: 0,
-			Time: 15*time.Second,
-			Timeout: 30*time.Second,
+			Time:                  15 * time.Second,
+			Timeout:               30 * time.Second,
 		}),
 	)
 	pb.RegisterPacketGatewayServer(server, packetGatewayServer)
 
-	if (cfg.CaptureConfig.PingEnabled) {
+	if cfg.CaptureConfig.PingEnabled {
 		healthServer := health.NewServer()
 		healthServer.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
 		healthpb.RegisterHealthServer(server, healthServer)
