@@ -13,7 +13,7 @@ FROM alpine:latest
 
 WORKDIR /app
 
-RUN apk add --no-cache grpcurl --repository=dl-cdn.alpinelinux.org
+RUN apk add --no-cache --repository=http://dl-cdn.alpinelinux.org/alpine/edge/testing grpcurl
 
 COPY --from=builder /app/main .
 RUN chmod +x ./main
