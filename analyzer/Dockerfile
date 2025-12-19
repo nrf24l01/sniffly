@@ -18,8 +18,6 @@ WORKDIR /app
 RUN apk add --no-cache tzdata libpcap-dev
 
 COPY --from=builder /app/main .
-COPY start.sh /app/start.sh
 RUN chmod +x ./main
-RUN chmod +x ./start.sh
 
-CMD ["sh", "start.sh"]
+CMD ["./main"]

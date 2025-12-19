@@ -2,7 +2,6 @@ package batcher
 
 import (
 	"context"
-	"log"
 	"time"
 
 	"github.com/google/uuid"
@@ -43,7 +42,7 @@ func (b *Batcher) Process(ctx context.Context, batch Batch) error {
 			per_device_mac_device_id[device_id] = found_device_id
 		}
 	}
-	
+
 	// Grouping packets by device ID
 	per_device_id := make(map[uuid.UUID][]snifpacket.SnifPacket)
 	for mac, packets := range per_device_mac {
@@ -55,7 +54,6 @@ func (b *Batcher) Process(ctx context.Context, batch Batch) error {
 
 	// Processing per device ID
 	for device_id, packets := range per_device_id {
-		log.Printf("Processing device ID %d with %d packets", device_id, len(packets))
 		chBatch, err := b.processDevicBigBatch(ctx, device_id, packets)
 		if err != nil {
 			return err
@@ -65,10 +63,6 @@ func (b *Batcher) Process(ctx context.Context, batch Batch) error {
 		bigBatch.DeviceCountries = append(bigBatch.DeviceCountries, chBatch.DeviceCountries...)
 		bigBatch.DeviceProtos = append(bigBatch.DeviceProtos, chBatch.DeviceProtos...)
 	}
-
-	log.Printf("bigBatch stats: traffic=%d, domains=%d, countries=%d, protos=%d", 
-		len(bigBatch.DeviceTraffics), len(bigBatch.DeviceDomains), 
-		len(bigBatch.DeviceCountries), len(bigBatch.DeviceProtos))
 
 	return bigBatch.Insert(ctx, b)
 }
@@ -100,7 +94,7 @@ func (b *Batcher) processDevicBigBatch(ctx context.Context, device_id uuid.UUID,
 	}
 
 	batches := make([]Batch, 0)
-	
+
 	interval := 5 * time.Second
 	for cur := first_packet_time; cur.Before(last_packet_time); cur = cur.Add(interval) {
 		batches = append(batches, Batch{

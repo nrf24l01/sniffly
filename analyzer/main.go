@@ -26,11 +26,11 @@ func main() {
 
 	cfg := core.BuildConfigFromEnv()
 	ctx := context.Background()
-	
+
 	// Init Postgres
-	pg_db, err := pg_kit.RegisterPostgres(cfg.PGConfig, 
-		&postgres.DeviceInfo{}, 
-		&postgres.DeviceCountry5s{}, &postgres.DeviceDomain5s{}, &postgres.DeviceProto5s{}, &postgres.DeviceTraffic5s{}, 
+	pg_db, err := pg_kit.RegisterPostgres(cfg.PGConfig,
+		&postgres.DeviceInfo{},
+		&postgres.DeviceCountry5s{}, &postgres.DeviceDomain5s{}, &postgres.DeviceProto5s{}, &postgres.DeviceTraffic5s{},
 		&postgres.DayCacheVersion{},
 	)
 	if err != nil {
@@ -66,14 +66,14 @@ func main() {
 		RDB: rdb,
 	}
 
-	log.Printf("Starting analyzer batcher...")
-	batch, err := batcher.RecordBatch(time.Duration(2) * time.Second)
-	if err != nil {
-		log.Fatalf("failed to record batch: %v", err)
+	for {
+		batch, err := batcher.RecordBatch(time.Duration(2) * time.Second)
+		if err != nil {
+			log.Fatalf("failed to record batch: %v", err)
+		}
+		err = batcher.Process(ctx, batch)
+		if err != nil {
+			log.Fatalf("failed to process batch: %v", err)
+		}
 	}
-	err = batcher.Process(ctx, batch)
-	if err != nil {
-		log.Fatalf("failed to process batch: %v", err)
-	}
-	log.Printf("Finished batch analyze")
 }
