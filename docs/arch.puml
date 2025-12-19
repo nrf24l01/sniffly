@@ -7,46 +7,33 @@ skinparam arrowColor #666666
 !define TECH(x) <b>x</b>
 
 package "Sniffly" {
-    [Модуль анализа] as analysis #DAE8FC
-    [Фронтенд] as frontend #D5E8D4
-    [Бэкенд] as backend #DAE8FC
-    [Приемник захвата] as capture_receiver #DAE8FC
+    database "База данных(postgres)" as db #1869ff
+    queue "Очередь сообщений(rabbitmq)" as queue #FC6D26
+    database "База кеша(redis)" as redis #D82C20
+
+    [Приемник захвата] as capture_receiver #00ADD8
+    [Бэкенд] as backend #00ADD8
+    [Модуль анализа] as analysis #00ADD8
+    [Фронтенд] as frontend #42b883
     [Nginx] as nginx #009639
 }
 
-package "Datasources" {
-    database "База данных(postgres)" as db #1869ff
-    queue "Очередь сообщений" as queue #FFF2CC
-    database "База кеша(redis)" as redis #ff7f27
-}
-
 package "Шлюзы(устройства куда ставится захватывать)" {
-    [Модуль захвата] as capture #DAE8FC
-    [Модуль захвата 1] as capture1 #DAE8FC
-    [Модуль захвата 2] as capture2 #DAE8FC
-    [Модуль захвата 3] as capture3 #DAE8FC
+    [Модуль захвата] as capture #00ADD8
+    [Модуль захвата 1] as capture1 #00ADD8
 }
 
-backend --> db : Сохранение и\nзапрос данных
-backend <--> redis : Кеширование\nстарых отчетов
-capture --> nginx : Отправка\nзахваченных пакетов
-capture1 --> nginx : Отправка\nзахваченных пакетов
-capture2 --> nginx : Отправка\nзахваченных пакето
-capture3 --> nginx : Отправка\nзахваченных пакетов
-nginx <--> capture_receiver : Передача\nзахваченных пакетов
-capture_receiver -> db : Кому можно сохранять
-capture_receiver -> queue : Помещение пакетов\nв очередь на анализ
-analysis <- queue : Получение пакетов\nдля анализа
 analysis <--> redis : GeoIP кеш
 frontend --> nginx : HTTP API
 nginx <--> backend : HTTP API
 backend --> db : Запрос\nданных для отчетов
 analysis -> db : Сохранение\nрезультатов анализа
-
-legend right
-    <b>Технологии:</b>
-    <i>Фронтенд</i>: Vue.js + tailwindcss
-    <i>Бэкенд</i>: Go + Echo
-    <i>Модули захвата и анализа</i>: Go
-endlegend
+backend --> db : Сохранение и\nзапрос данных
+backend <--> redis : Кеширование\nстарых отчетов
+capture --> nginx : Отправка\nзахваченных пакетов
+capture1 --> nginx : Отправка\nзахваченных пакетов
+nginx <--> capture_receiver : Передача\nзахваченных пакетов\n(gRPC)
+capture_receiver -> db : Кому можно сохранять
+capture_receiver -> queue : Помещение пакетов\nв очередь на анализ
+analysis <- queue : Получение пакетов\nдля анализа
 @enduml
