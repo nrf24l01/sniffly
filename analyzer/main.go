@@ -49,6 +49,11 @@ func main() {
 		log.Fatalf("failed to connect to RabbitMQ: %v", err)
 	}
 
+	// Limit prefetch to avoid large numbers of Unacked messages per consumer
+	if err := rmq.Channel.Qos(1, 0, false); err != nil {
+		log.Printf("failed to set QoS on RabbitMQ channel: %v", err)
+	}
+
 	// Init Redis
 	rdb := redisutil.NewRedisClient(cfg.RedisConfig)
 
@@ -67,7 +72,8 @@ func main() {
 	}
 
 	for {
-		batch, err := batcher.RecordBatch(time.Duration(2) * time.Second)
+		batch, err := batcher.LoadAllRecords()
+		log.Printf("Loaded batch with %d records", len(batch.Packets))
 		if err != nil {
 			log.Fatalf("failed to record batch: %v", err)
 		}
@@ -75,5 +81,6 @@ func main() {
 		if err != nil {
 			log.Fatalf("failed to process batch: %v", err)
 		}
+		time.Sleep(time.Second*10)
 	}
 }
