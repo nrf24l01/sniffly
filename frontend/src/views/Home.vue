@@ -268,55 +268,6 @@ function onSwitch(widget: 'traffic' | 'domains' | 'countries' | 'protos', m: Wid
         <div class="rounded-2xl border border-slate-200/70 bg-white/70 p-3 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-900/50">
           <div class="flex items-start justify-between gap-3 px-1 pb-2">
             <div>
-              <div class="text-sm font-semibold text-slate-900 dark:text-slate-50">Traffic</div>
-              <div class="text-xs text-slate-500 dark:text-slate-300">Chart: time vs bytes from /charts; Table: totals from /tables</div>
-            </div>
-            <ViewSwitch v-model="trafficMode" :disabled="refreshing" @update:modelValue="onSwitch('traffic', $event)" />
-          </div>
-
-          <LineChart
-            v-if="trafficMode === 'chart'"
-            title=""
-            subtitle=""
-            xAxisName="time"
-            yAxisName="bytes"
-            :series="trafficSeries"
-            :loading="loadingCharts"
-            :stacked="true"
-              :xMin="range.fromMs"
-              :xMax="range.toMs"
-            height="320px"
-          />
-
-          <div v-else class="mt-2 overflow-auto">
-            <div v-if="loadingTables.traffic" class="h-36 w-full animate-pulse rounded-xl bg-slate-200/60 dark:bg-slate-700/40" />
-            <table v-else class="min-w-full text-left text-sm">
-              <thead class="text-xs uppercase text-slate-500 dark:text-slate-300">
-                <tr>
-                  <th class="py-2 pr-4">Device</th>
-                  <th class="py-2 pr-4">IP</th>
-                  <th class="py-2 pr-4">Up</th>
-                  <th class="py-2 pr-4">Down</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-slate-200/70 dark:divide-slate-800">
-                <tr v-for="row in (trafficTable ?? [])" :key="row.device.mac" class="hover:bg-slate-50/80 dark:hover:bg-slate-800/30">
-                  <td class="py-3 pr-4 font-medium text-slate-900 dark:text-slate-50">{{ row.device.label || row.device.mac }}</td>
-                  <td class="py-3 pr-4 text-slate-700 dark:text-slate-200">{{ row.device.ip }}</td>
-                  <td class="py-3 pr-4 text-slate-700 dark:text-slate-200">{{ formatBytes(row.stats.up_bytes) }}</td>
-                  <td class="py-3 pr-4 text-slate-700 dark:text-slate-200">{{ formatBytes(row.stats.down_bytes) }}</td>
-                </tr>
-                <tr v-if="!loadingTables.traffic && (!trafficTable || trafficTable.length === 0)">
-                  <td colspan="4" class="py-6 text-center text-sm text-slate-500 dark:text-slate-300">No data</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div class="rounded-2xl border border-slate-200/70 bg-white/70 p-3 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-900/50">
-          <div class="flex items-start justify-between gap-3 px-1 pb-2">
-            <div>
               <div class="text-sm font-semibold text-slate-900 dark:text-slate-50">Domains</div>
               <div class="text-xs text-slate-500 dark:text-slate-300">Chart: per-domain requests over time; Table: totals from /tables</div>
             </div>
@@ -358,9 +309,6 @@ function onSwitch(widget: 'traffic' | 'domains' | 'countries' | 'protos', m: Wid
             </table>
           </div>
         </div>
-      </section>
-
-      <section class="mt-4 grid gap-4 md:grid-cols-2">
         <div class="rounded-2xl border border-slate-200/70 bg-white/70 p-3 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-900/50">
           <div class="flex items-start justify-between gap-3 px-1 pb-2">
             <div>
@@ -471,6 +419,57 @@ function onSwitch(widget: 'traffic' | 'domains' | 'countries' | 'protos', m: Wid
             :xMax="range.toMs"
             height="320px"
           />
+        </div>
+      </section>
+
+      <section class="mt-4">
+        <div class="rounded-2xl border border-slate-200/70 bg-white/70 p-3 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-900/50">
+          <div class="flex items-start justify-between gap-3 px-1 pb-2">
+            <div>
+              <div class="text-sm font-semibold text-slate-900 dark:text-slate-50">Traffic</div>
+              <div class="text-xs text-slate-500 dark:text-slate-300">Chart: time vs bytes from /charts; Table: totals from /tables</div>
+            </div>
+            <ViewSwitch v-model="trafficMode" :disabled="refreshing" @update:modelValue="onSwitch('traffic', $event)" />
+          </div>
+
+          <LineChart
+            v-if="trafficMode === 'chart'"
+            title=""
+            subtitle=""
+            xAxisName="time"
+            yAxisName="bytes"
+            :series="trafficSeries"
+            :loading="loadingCharts"
+            :stacked="true"
+            :xMin="range.fromMs"
+            :xMax="range.toMs"
+            height="320px"
+          />
+
+          <div v-else class="mt-2 overflow-auto">
+            <div v-if="loadingTables.traffic" class="h-36 w-full animate-pulse rounded-xl bg-slate-200/60 dark:bg-slate-700/40" />
+            <table v-else class="min-w-full text-left text-sm">
+              <thead class="text-xs uppercase text-slate-500 dark:text-slate-300">
+                <tr>
+                  <th class="py-2 pr-4">Device</th>
+                  <th class="py-2 pr-4">IP</th>
+                  <th class="py-2 pr-4">Up</th>
+                  <th class="py-2 pr-4">Down</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-200/70 dark:divide-slate-800">
+                <tr v-for="row in (trafficTable ?? [])" :key="row.device.mac" class="hover:bg-slate-50/80 dark:hover:bg-slate-800/30">
+                  <td class="py-3 pr-4 font-medium text-slate-900 dark:text-slate-50">{{ row.device.label || row.device.mac }}</td>
+                  <td class="py-3 pr-4 text-slate-700 dark:text-slate-200">{{ row.device.ip }}</td>
+                  <td class="py-3 pr-4 text-slate-700 dark:text-slate-200">{{ formatBytes(row.stats.up_bytes) }}</td>
+                  <td class="py-3 pr-4 text-slate-700 dark:text-slate-200">{{ formatBytes(row.stats.down_bytes) }}</td>
+                </tr>
+                <tr v-if="!loadingTables.traffic && (!trafficTable || trafficTable.length === 0)">
+                  <td colspan="4" class="py-6 text-center text-sm text-slate-500 dark:text-slate-300">No data</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
     </div>
