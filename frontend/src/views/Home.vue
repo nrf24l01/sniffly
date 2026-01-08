@@ -241,7 +241,7 @@ function onSwitch(widget: 'traffic' | 'domains' | 'countries' | 'protos', m: Wid
         {{ error }}
       </section>
 
-      <section class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <!-- <section class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard title="Devices" :value="formatNumber(deviceCount)" hint="Devices with traffic in range" />
         <StatCard title="Total Up" :value="formatBytes(totalUp)" hint="Shown when Traffic table is loaded" />
         <StatCard title="Total Down" :value="formatBytes(totalDown)" hint="Shown when Traffic table is loaded" />
@@ -250,7 +250,7 @@ function onSwitch(widget: 'traffic' | 'domains' | 'countries' | 'protos', m: Wid
           :value="selectedDevice ? (selectedDevice.label || selectedDevice.mac) : '—'"
           :hint="selectedDevice ? `${selectedDevice.ip} • ${selectedDevice.hostname}` : 'Pick a device to inspect'"
         />
-      </section>
+      </section> -->
 
       <section class="mt-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div class="text-sm font-medium text-slate-700 dark:text-slate-200">Device</div>
