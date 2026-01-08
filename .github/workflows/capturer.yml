@@ -18,7 +18,7 @@ permissions:
 
 jobs:
   build-binaries:
-    name: Build capturer (multi-arch, libc)
+    name: Build capturer (multi-arch, static)
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -28,11 +28,6 @@ jobs:
           - { name: armv6, platform: linux/arm/v6, TARGETARCH: arm, TARGETVARIANT: 6 }
           - { name: armv7, platform: linux/arm/v7, TARGETARCH: arm, TARGETVARIANT: 7 }
           - { name: arm64, platform: linux/arm64, TARGETARCH: arm64, TARGETVARIANT: "" }
-        libc: [musl, glibc]
-        exclude:
-          # No glibc build for armv6: official golang Debian images are not published for linux/arm/v6.
-          - target: { name: armv6, platform: linux/arm/v6, TARGETARCH: arm, TARGETVARIANT: 6 }
-            libc: glibc
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -43,23 +38,9 @@ jobs:
       - name: Set up buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Choose base image for libc
+      - name: Choose base image
         run: |
-          # Pick a base image that actually exists for the requested platform.
-          # Note: official `golang:*-(bullseye|bookworm)` tags are not published for all variants (notably arm/v6 and 386).
-          platform="${{ matrix.target.platform }}"
-          libc="${{ matrix.libc }}"
-
-          if [ "$libc" = "musl" ]; then
-            # Alpine/musl (official golang tag includes amd64/386/armv6/armv7/arm64)
-            base="golang:1.24-alpine3.23"
-          else
-            # Debian/glibc (official tag includes amd64/386/armv7/arm64)
-            base="golang:1.24-bullseye"
-          fi
-
-          echo "BASE_IMAGE=$base" >> $GITHUB_ENV
-          echo "Using BASE_IMAGE=$base for $platform ($libc)"
+          echo "BASE_IMAGE=golang:1.24-alpine3.23" >> $GITHUB_ENV
 
       - name: Build image for target
         uses: docker/build-push-action@v5
@@ -70,7 +51,7 @@ jobs:
           push: false
           load: true
           tags: |
-            capturer:${{ matrix.target.name }}-${{ matrix.libc }}
+            capturer:${{ matrix.target.name }}
           build-args: |
             BASE_IMAGE=${{ env.BASE_IMAGE }}
             TARGETOS=linux
@@ -80,16 +61,16 @@ jobs:
       - name: Extract binary from image
         run: |
           mkdir -p artifacts
-          IMAGE_NAME=capturer:${{ matrix.target.name }}-${{ matrix.libc }}
+          IMAGE_NAME=capturer:${{ matrix.target.name }}
           CONTAINER_ID=$(docker create $IMAGE_NAME)
-          docker cp $CONTAINER_ID:/app/main ./artifacts/capturer-${{ matrix.target.name }}-${{ matrix.libc }}
+          docker cp $CONTAINER_ID:/app/main ./artifacts/capturer-${{ matrix.target.name }}
           docker rm $CONTAINER_ID
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: capturer-${{ matrix.target.name }}-${{ matrix.libc }}
-          path: ./artifacts/capturer-${{ matrix.target.name }}-${{ matrix.libc }}
+          name: capturer-${{ matrix.target.name }}
+          path: ./artifacts/capturer-${{ matrix.target.name }}
           retention-days: 30
 
   release:
@@ -125,5 +106,5 @@ jobs:
           artifacts: "dist/*"
           body: |
             Capturer autobuild (multi-arch).
-            Binaries: amd64/x86/armv6/armv7/arm64 (musl) and amd64/x86/armv7/arm64 (glibc).
+            Binaries: amd64/x86/armv6/armv7/arm64 (static).
             The `latest` tag always points to the most recent build.

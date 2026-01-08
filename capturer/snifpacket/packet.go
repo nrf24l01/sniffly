@@ -47,7 +47,7 @@ type SnifPacketDetails struct {
 	TLS        *SnifPacketDetailsTLS   `json:"tls,omitempty"`
 	DNS        *SnifPacketDetailsDNS   `json:"dns,omitempty"`
 	FTP        *SnifPacketDetailsFTP   `json:"ftp,omitempty"`
-	TCP 	   *SnifPacketDetailsTCP   `json:"tcp,omitempty"`
+	TCP 	     *SnifPacketDetailsTCP   `json:"tcp,omitempty"`
 	UDP        *SnifPacketDetailsUDP   `json:"udp,omitempty"`
 	Type       SnifPacketType          `json:"type"`
 }
@@ -55,7 +55,7 @@ type SnifPacketDetails struct {
 type SnifPacket struct {
 	SrcIP      string                  `json:"src_ip"`
 	DstIP      string                  `json:"dst_ip"`
-	SrcMAC     string				   `json:"src_mac"`
+	SrcMAC     string				           `json:"src_mac"`
 	DstMAC     string                  `json:"dst_mac"`
 	SrcPort    string                  `json:"src_port"`
 	DstPort    string                  `json:"dst_port"`
