@@ -4,36 +4,52 @@ skinparam backgroundColor white
 skinparam defaultFontName Arial
 skinparam arrowColor #666666
 
+skinparam ranksep 60
+skinparam nodesep 10
+
+top to bottom direction
+
+package "Gateways" as gateways {
+    [Capturer] as capture #00ADD8
+    [Capturer 1] as capture1 #00ADD8
+}
+
 !define TECH(x) <b>x</b>
 
-package "Sniffly" {
-    database "База данных(postgres)" as db #1869ff
-    queue "Очередь сообщений(rabbitmq)" as queue #FC6D26
-    database "База кеша(redis)" as redis #D82C20
+package "Sniffly" as sniffly {
+    database "Database (Postgres)" as db #1869ff
+    queue "Packet Queue (RabbitMQ)" as queue #FC6D26
+    database "Cache Database (Redis)" as redis #D82C20
 
-    [Приемник захвата] as capture_receiver #00ADD8
-    [Бэкенд] as backend #00ADD8
-    [Модуль анализа] as analysis #00ADD8
-    [Фронтенд] as frontend #42b883
+    [Capture Receiver] as capture_receiver #00ADD8
+    [Backend] as backend #00ADD8
+    [Analysis Module] as analysis #00ADD8
+    [Frontend] as frontend #42b883
     [Nginx] as nginx #009639
 }
 
-package "Шлюзы(устройства куда ставится захватывать)" {
-    [Модуль захвата] as capture #00ADD8
-    [Модуль захвата 1] as capture1 #00ADD8
-}
+gateways -down[hidden]-> sniffly
+gateways -[hidden]-> sniffly
 
-analysis <--> redis : GeoIP кеш
-frontend --> nginx : HTTP API
-nginx <--> backend : HTTP API
-backend --> db : Запрос\nданных для отчетов
-analysis -> db : Сохранение\nрезультатов анализа
-backend --> db : Сохранение и\nзапрос данных
-backend <--> redis : Кеширование\nстарых отчетов
-capture --> nginx : Отправка\nзахваченных пакетов
-capture1 --> nginx : Отправка\nзахваченных пакетов
-nginx <--> capture_receiver : Передача\nзахваченных пакетов\n(gRPC)
-capture_receiver -> db : Кому можно сохранять
-capture_receiver -> queue : Помещение пакетов\nв очередь на анализ
-analysis <- queue : Получение пакетов\nдля анализа
+frontend -down[hidden]-> nginx
+nginx -down[hidden]-> backend
+backend -down[hidden]-> db
+nginx -down[hidden]-> capture_receiver
+capture_receiver -down[hidden]-> queue
+queue -down[hidden]-> analysis
+analysis -down[hidden]-> redis
+
+analysis <-down-> redis : GeoIP cache
+frontend -down-> nginx : HTTP API
+nginx <-down-> backend : HTTP API
+backend --> db : Query\ndata for reports
+analysis -> db : Save\nanalysis results
+backend --> db : Save and\nquery data
+backend <--> redis : Cache\nold reports
+capture -down-> nginx : Send\ncaptured packets\n(gRPC)
+capture1 -down-> nginx : Send\ncaptured packets\n(gRPC)
+nginx <-down-> capture_receiver : Send\ncaptured packets\n(gRPC)
+capture_receiver -> db : Check capturer auth
+capture_receiver -> queue : Enqueue packets\nfor analysis
+queue -down-> analysis : Dequeue packets\nfor analysis
 @enduml
