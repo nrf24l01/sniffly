@@ -13,51 +13,78 @@ on:
       - '.github/workflows/capturer.yml'
   workflow_dispatch:
 
-env:
-  LONG_IMAGE_TAG: ${{ github.sha }}
-
 jobs:
-  build-capturer:
-    name: Build Capturer
+  build-binaries:
+    name: Build capturer (multi-arch, libc)
     runs-on: ubuntu-latest
-
+    strategy:
+      matrix:
+        target:
+          - { name: amd64, platform: linux/amd64, TARGETARCH: amd64, TARGETVARIANT: "" }
+          - { name: x86, platform: linux/386, TARGETARCH: 386, TARGETVARIANT: "" }
+          - { name: armv6, platform: linux/arm/v6, TARGETARCH: arm, TARGETVARIANT: 6 }
+          - { name: armv7, platform: linux/arm/v7, TARGETARCH: arm, TARGETVARIANT: 7 }
+          - { name: arm64, platform: linux/arm64, TARGETARCH: arm64, TARGETVARIANT: "" }
+        libc: [musl, glibc]
+        exclude:
+          # No glibc build for armv6: official golang Debian images are not published for linux/arm/v6.
+          - target: { name: armv6, platform: linux/arm/v6, TARGETARCH: arm, TARGETVARIANT: 6 }
+            libc: glibc
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set short hash
-        run: echo "IMAGE_TAG=$(echo $GITHUB_SHA | cut -c1-7)" >> $GITHUB_ENV
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
 
-      - name: Set up Docker Buildx
+      - name: Set up buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build image locally with Buildx
+      - name: Choose base image for libc
+        run: |
+          # Pick a base image that actually exists for the requested platform.
+          # Note: official `golang:*-(bullseye|bookworm)` tags are not published for all variants (notably arm/v6 and 386).
+          platform="${{ matrix.target.platform }}"
+          libc="${{ matrix.libc }}"
+
+          if [ "$libc" = "musl" ]; then
+            # Alpine/musl (official golang tag includes amd64/386/armv6/armv7/arm64)
+            base="golang:1.24-alpine3.23"
+          else
+            # Debian/glibc (official tag includes amd64/386/armv7/arm64)
+            base="golang:1.24-bullseye"
+          fi
+
+          echo "BASE_IMAGE=$base" >> $GITHUB_ENV
+          echo "Using BASE_IMAGE=$base for $platform ($libc)"
+
+      - name: Build image for target
         uses: docker/build-push-action@v5
         with:
           context: capturer
           file: capturer/Dockerfile
-          tags: |
-            capturer:latest
+          platforms: ${{ matrix.target.platform }}
           push: false
           load: true
+          tags: |
+            capturer:${{ matrix.target.name }}-${{ matrix.libc }}
+          build-args: |
+            BASE_IMAGE=${{ env.BASE_IMAGE }}
+            TARGETOS=linux
+            TARGETARCH=${{ matrix.target.TARGETARCH }}
+            TARGETVARIANT=${{ matrix.target.TARGETVARIANT }}
 
-      - name: Extract binary from built image
+      - name: Extract binary from image
         run: |
-          IMAGE_NAME=capturer:latest
+          mkdir -p artifacts
+          IMAGE_NAME=capturer:${{ matrix.target.name }}-${{ matrix.libc }}
           CONTAINER_ID=$(docker create $IMAGE_NAME)
-          docker cp $CONTAINER_ID:/app/main ./capturer-binary
+          docker cp $CONTAINER_ID:/app/main ./artifacts/capturer-${{ matrix.target.name }}-${{ matrix.libc }}
           docker rm $CONTAINER_ID
 
-      - name: Upload binary as artifact
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: capturer-binary
-          path: ./capturer-binary
+          name: capturer-${{ matrix.target.name }}-${{ matrix.libc }}
+          path: ./artifacts/capturer-${{ matrix.target.name }}-${{ matrix.libc }}
           retention-days: 30
-
-      - name: Create or update latest release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: latest
-          name: Capturer build
-          files: ./capturer-binary
