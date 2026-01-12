@@ -8,8 +8,9 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/joho/godotenv v1.5.1
 	github.com/labstack/echo/v4 v4.13.4
-	github.com/nrf24l01/go-web-utils v1.9.3
+	github.com/nrf24l01/go-web-utils v1.11.0
 	github.com/nrf24l01/sniffly/analyzer v0.0.0-20251217094808-ec8f33cf92b9
+	github.com/nrf24l01/sniffly/capture_receiver v0.0.0-20251116194204-969e62f55109
 	golang.org/x/term v0.37.0
 	gorm.io/gorm v1.31.1
 )

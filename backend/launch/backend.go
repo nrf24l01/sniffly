@@ -8,6 +8,7 @@ import (
 
 	echokitMw "github.com/nrf24l01/go-web-utils/echokit/middleware"
 	echokitSchemas "github.com/nrf24l01/go-web-utils/echokit/schemas"
+	random "github.com/nrf24l01/go-web-utils/misc/random"
 	"github.com/nrf24l01/go-web-utils/redis"
 	"github.com/nrf24l01/sniffly/backend/handlers"
 	"github.com/nrf24l01/sniffly/backend/routes"
@@ -19,7 +20,7 @@ import (
 	echoMw "github.com/labstack/echo/v4/middleware"
 )
 
-func startBackend(config *core.Config, db *gorm.DB, rdb *redis.RedisClient) {
+func startBackend(config *core.Config, db *gorm.DB, rdb *redis.RedisClient, randomGenerator *random.RandomGenerator) {
 	// Create echo object
 	e := echo.New()
 
@@ -48,7 +49,7 @@ func startBackend(config *core.Config, db *gorm.DB, rdb *redis.RedisClient) {
 	})
 
 	// Register routes
-	handler := &handlers.Handler{DB: db, Config: config, RDB: rdb}
+	handler := &handlers.Handler{DB: db, Config: config, RDB: rdb, RandomGenerator: randomGenerator}
 	routes.RegisterRoutes(e, handler)
 
 	// Start server

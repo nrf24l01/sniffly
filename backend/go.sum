@@ -49,10 +49,12 @@ github.com/mattn/go-colorable v0.1.14 h1:9A9LHSqF/7dyVVX6g0U9cwm9pG3kP9gSzcuIPHP
 github.com/mattn/go-colorable v0.1.14/go.mod h1:6LmQG8QLFO4G5z1gPvYEzlUgJ2wF+stgPZH1UqBm1s8=
 github.com/mattn/go-isatty v0.0.20 h1:xfD0iDuEKnDkl03q4limB+vH+GxLEtL/jb4xVJSWWEY=
 github.com/mattn/go-isatty v0.0.20/go.mod h1:W+V8PltTTMOvKvAeJH7IuucS94S2C6jfK/D7dTCTo3Y=
-github.com/nrf24l01/go-web-utils v1.9.3 h1:eEC6FN2aSMwpjMabicXeN+kUFU/k5Oib33gEOgOmqMM=
-github.com/nrf24l01/go-web-utils v1.9.3/go.mod h1:VUQZWEdcFBSne9BE/jmspD/HzMysZLawJ0elXqf0YjU=
+github.com/nrf24l01/go-web-utils v1.11.0 h1:8dqpgQWgjB9X7HAafbOCsvUc46oyYCzYgwMOSGhTEAo=
+github.com/nrf24l01/go-web-utils v1.11.0/go.mod h1:VUQZWEdcFBSne9BE/jmspD/HzMysZLawJ0elXqf0YjU=
 github.com/nrf24l01/sniffly/analyzer v0.0.0-20251217094808-ec8f33cf92b9 h1:NKuTwwcsm3ZJDn86A55w6DTe64jtPUX/he3BXc0xuX4=
 github.com/nrf24l01/sniffly/analyzer v0.0.0-20251217094808-ec8f33cf92b9/go.mod h1:0qI7Xn42ganIfK3K+WWCeiqsQUYsaVItFa5TJfedz1g=
+github.com/nrf24l01/sniffly/capture_receiver v0.0.0-20251116194204-969e62f55109 h1:yAzy6U3i/bHXVbTSyaELGHB/o0NkrIeQ51+a//rHbEg=
+github.com/nrf24l01/sniffly/capture_receiver v0.0.0-20251116194204-969e62f55109/go.mod h1:EQ3xW+XbidoH/ztNYIH5X0psZmhwNUAR2tRzLHFHlNQ=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/redis/go-redis/v9 v9.17.2 h1:P2EGsA4qVIM3Pp+aPocCJ7DguDHhqrXNhVcEp4ViluI=

@@ -7,16 +7,17 @@ import (
 
 	"golang.org/x/term"
 
+	random "github.com/nrf24l01/go-web-utils/misc/random"
 	"github.com/nrf24l01/go-web-utils/redis"
 	"github.com/nrf24l01/sniffly/backend/core"
 	"github.com/nrf24l01/sniffly/backend/postgres"
 	"gorm.io/gorm"
 )
 
-func Dispatch(config *core.Config, db *gorm.DB, rdb *redis.RedisClient, args []string) {
+func Dispatch(config *core.Config, db *gorm.DB, rdb *redis.RedisClient, randomGenerator *random.RandomGenerator, args []string) {
 	if len(args) == 0 {
 		log.Printf("NO COMMAND LINE ARGUMENTS, RUN BACKEND")
-		startBackend(config, db, rdb)
+		startBackend(config, db, rdb, randomGenerator)
 	}
 	switch args[0] {
 	case "create_user":
@@ -64,7 +65,7 @@ func Dispatch(config *core.Config, db *gorm.DB, rdb *redis.RedisClient, args []s
 		log.Printf("User %s created successfully", username)
 		return
 	case "run":
-		startBackend(config, db, rdb)
+		startBackend(config, db, rdb, randomGenerator)
 	default:
 		log.Printf("Unknown command: %s", args[0])
 	}
