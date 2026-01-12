@@ -1,0 +1,42 @@
+@startuml arch
+skinparam componentStyle rectangle
+skinparam backgroundColor white
+skinparam defaultFontName Arial
+skinparam arrowColor #666666
+
+skinparam ranksep 60
+skinparam nodesep 10
+
+top to bottom direction
+
+!define TECH(x) <b>x</b>
+
+database "Database (Postgres)" as db #1869ff
+queue "Packet Queue (RabbitMQ)" as queue #FC6D26
+database "Cache Database (Redis)" as redis #D82C20
+
+[Capture Receiver] as capture_receiver #00ADD8
+[Backend] as backend #00ADD8
+[Analysis Module] as analysis #00ADD8
+[Frontend] as frontend #42b883
+[Nginx] as nginx #009639
+
+nginx -down[hidden]-> frontend
+nginx -down[hidden]-> backend
+backend -down[hidden]-> db
+nginx -down[hidden]-> capture_receiver
+capture_receiver -down[hidden]-> queue
+queue -down[hidden]-> analysis
+analysis -down[hidden]-> redis
+
+analysis <-down-> redis : GeoIP кеш
+frontend -down-> nginx : HTTP API
+nginx <-down-> backend : HTTP API
+analysis -> db : Сохранение\nрезультатов анализа
+backend --> db : Сохранение и чтение\nданных
+backend <--> redis : Кеширование\nотчётов
+nginx <-down-> capture_receiver : Захваченные пакеты\n(gRPC)
+capture_receiver -> db : Проверка токена захватчика
+capture_receiver -> queue : Добавление пакетов\nв очередь для анализа
+queue -down-> analysis : Извлечение пакетов\nиз очереди для анализа
+@enduml
