@@ -16,4 +16,10 @@ func RegisterCapturerRoutes(e *echo.Echo, h *handlers.Handler) {
 	group.POST("", h.CreateCapturerHandler, echokitMW.BodyValidationMiddleware(func() interface{} {
 		return &schemas.CapturerCreateRequest{}
 	}))
+	group.GET("/:uuid", h.GetCapturerHandler, echokitMW.PathUuidV4Middleware("uuid"))
+	group.PATCH("/:uuid", h.UpdateCapturerHandler, echokitMW.BodyValidationMiddleware(func() interface{} {
+		return &schemas.CapturerUpdateRequest{}
+	}), echokitMW.PathUuidV4Middleware("uuid"))
+	group.DELETE("/:uuid", h.DeleteCapturerHandler, echokitMW.PathUuidV4Middleware("uuid"))
+	group.POST("/:uuid/regenerate", h.RegenerateCapturerApiKeyHandler, echokitMW.PathUuidV4Middleware("uuid"))
 }

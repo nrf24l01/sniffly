@@ -9,10 +9,15 @@ type Capturer struct {
 
 type CapturerCreateRequest struct {
 	Name    string `json:"name" validate:"required,min=3,max=100"`
-	Enabled bool   `json:"enabled"`
+	Enabled bool   `json:"enabled" validate:"required"`
 }
 
 type CapturerCreateResponse struct {
 	UUID   string `json:"uuid"`
 	ApiKey string `json:"api_key"`
+}
+
+type CapturerUpdateRequest struct {
+	Name    *string `json:"name" validate:"omitempty,min=3,max=100"`
+	Enabled *bool   `json:"enabled" validate:"omitempty"`
 }

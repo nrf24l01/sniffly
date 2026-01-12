@@ -38,7 +38,7 @@ func startBackend(config *core.Config, db *gorm.DB, rdb *redis.RedisClient, rand
 	log.Printf("Setting allowed origin to: %s", config.WebAppConfig.AllowOrigin)
 	e.Use(echoMw.CORSWithConfig(echoMw.CORSConfig{
 		AllowOrigins: []string{config.WebAppConfig.AllowOrigin},
-		AllowMethods: []string{echo.GET, echo.POST, echo.OPTIONS},
+		AllowMethods: []string{echo.GET, echo.POST, echo.OPTIONS, echo.DELETE, echo.PATCH},
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
 		AllowCredentials: true,
 	}))
