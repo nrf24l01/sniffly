@@ -11,6 +11,7 @@ import (
 
 func RegisterChartsRoutes(e *echo.Echo, h *handlers.Handler) {
 	group := e.Group("/charts")
+	group.Use(echokitMW.JWTMiddleware(*h.Config.JWTConfig))
 
 	group.GET("/traffic", h.GetChartsTrafficHandler, echokitMW.QueryValidationMiddleware(func() interface{} {
 		return &schemas.ChartDataRangeRequest{}

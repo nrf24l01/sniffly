@@ -11,6 +11,7 @@ import (
 
 func RegisterCapturerRoutes(e *echo.Echo, h *handlers.Handler) {
 	group := e.Group("/captures")
+	group.Use(echokitMW.JWTMiddleware(*h.Config.JWTConfig))
 
 	group.GET("", h.GetCapturersHandler)
 	group.POST("", h.CreateCapturerHandler, echokitMW.BodyValidationMiddleware(func() interface{} {
