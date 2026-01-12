@@ -8,4 +8,5 @@ import (
 func RegisterRoutes(e *echo.Echo, h *handlers.Handler) {
 	RegisterAuthRoutes(e, h)
 	RegisterChartsRoutes(e, h)
+	RegisterCapturerRoutes(e, h)
 }

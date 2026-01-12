@@ -34,15 +34,14 @@ func (h *Handler) CreateCapturerHandler(c echo.Context) error {
 	req := c.Get("validatedBody").(*schemas.CapturerCreateRequest)
 
 	// Check if capture with required name exists
-	if err := h.DB.Where("name = ?", req.Name).First(&postgres.Capturer{}).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return c.JSON(http.StatusConflict, echokitSchemas.ErrorResponse{
-				Message: "Capturer with this name already exists",
-				Code:    http.StatusConflict,
-			})
-		} else {
-			return c.JSON(http.StatusInternalServerError, echokitSchemas.DefaultInternalErrorResponse)
-		}
+	err := h.DB.Where("name = ?", req.Name).First(&postgres.Capturer{}).Error
+	if err == nil {
+		return c.JSON(http.StatusConflict, echokitSchemas.ErrorResponse{
+			Message: "Capturer with this name already exists",
+			Code:    http.StatusConflict,
+		})
+	} else if err != gorm.ErrRecordNotFound {
+		return c.JSON(http.StatusInternalServerError, echokitSchemas.DefaultInternalErrorResponse)
 	}
 
 	capturer := postgres.Capturer{

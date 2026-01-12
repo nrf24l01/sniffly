@@ -590,27 +590,6 @@ paths:
                 items:
                   $ref: '#/components/schemas/DeviceProtoSummary'
   /captures:
-    get:
-      tags: [Captures]
-      summary: Получить список всех краулеров
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Список краулеров
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/CaptureResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-  /capture/{id}:
     post:
       tags: [Captures]
       summary: Создать краулер (capture worker)
@@ -647,6 +626,27 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+    get:
+      tags: [Captures]
+      summary: Получить список всех краулеров
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Список краулеров
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CaptureResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /capture/{id}:
     get:
       tags: [Captures]
       summary: Получить данные краулера по id
