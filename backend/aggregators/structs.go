@@ -6,17 +6,18 @@ type TimeRange struct {
 }
 
 type Device struct {
-	MAC 	string  `json:"mac"`
-	IP 		string  `json:"ip"`
-	Label 	string  `json:"label"`
-	Hostname string `json:"hostname"`
+	MAC       string `json:"mac"`
+	IP        string `json:"ip"`
+	Label     string `json:"label,omitempty"`
+	UserLabel string `json:"user_label"`
+	Hostname  string `json:"hostname"`
 }
 
 type Traffic struct {
-	Bucket  	int64   `json:"bucket"`
-	UpBytes		uint64  `json:"up_bytes"`
-	DownBytes	uint64  `json:"down_bytes"`
-	ReqCount	uint64  `json:"req_count"`
+	Bucket    int64  `json:"bucket"`
+	UpBytes   uint64 `json:"up_bytes"`
+	DownBytes uint64 `json:"down_bytes"`
+	ReqCount  uint64 `json:"req_count"`
 }
 
 type TrafficChartData struct {

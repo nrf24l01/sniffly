@@ -17,25 +17,33 @@ func GetGenericChartData[TChartData any, TPostgresModel any](
 	config *core.Config,
 	timerange TimeRange,
 	cachePrefix string,
-	loadPostgres func(*gorm.DB, []time.Time) ([]TPostgresModel, error),
+	loadPostgres func(*gorm.DB, []time.Time, *string) ([]TPostgresModel, error),
 	convert func([]TPostgresModel) []TChartData,
 	getTimestamp func(TChartData) int64,
 	getDeviceMAC func(TChartData) string,
 	mergeStats func(TChartData, TChartData) TChartData,
+	filter func([]TChartData, TimeRange) []TChartData,
+	deviceID *string,
 ) ([]TChartData, error) {
 	cacheVersions, err := loadCacheVersionsFromPostgres(db, timerange)
 	if err != nil {
 		return nil, err
 	}
 
-	data_per_day_cache, days_from_cache, err := getCacheEntriesPerInterval[TChartData](config, rdb, timerange, cacheVersions, cachePrefix)
-	if err != nil {
-		return nil, err
+	data_per_day_cache := make(map[time.Time][]TChartData)
+	days_from_cache := []time.Time{}
+
+	// Device-scoped requests must bypass day cache (cache is not device-aware).
+	if deviceID == nil {
+		data_per_day_cache, days_from_cache, err = getCacheEntriesPerInterval[TChartData](config, rdb, timerange, cacheVersions, cachePrefix)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	non_cached_days := getNonCachedDays(timerange, days_from_cache)
 
-	data_per_day_uncache, err := loadPostgres(db, non_cached_days)
+	data_per_day_uncache, err := loadPostgres(db, non_cached_days, deviceID)
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +59,12 @@ func GetGenericChartData[TChartData any, TPostgresModel any](
 
 	log.Printf("Cache stats: loaded from cache %d days, loaded from postgres %d days", len(days_from_cache), len(non_cached_days))
 
-	return mergeData(data_per_day_cache, uncached_converted, getDeviceMAC, mergeStats), nil
+	merged := mergeData(data_per_day_cache, uncached_converted, getDeviceMAC, mergeStats)
+	if filter != nil {
+		merged = filter(merged, timerange)
+	}
+
+	return merged, nil
 }
 
 func getNonCachedDays(timerange TimeRange, days_from_cache []time.Time) []time.Time {
@@ -126,7 +139,7 @@ func cacheUncachedData[T any](
 
 	for date, items := range byDay {
 		start_of_day := date.Unix()
-		end_of_day := date.Add(24 * time.Hour).Unix() - 1
+		end_of_day := date.Add(24*time.Hour).Unix() - 1
 
 		if version, ok := cacheVersions[date]; ok {
 			err := setCacheEntryForInterval(config, rdb, TimeRange{Start: start_of_day, End: end_of_day}, items, version, prefix)
@@ -138,7 +151,7 @@ func cacheUncachedData[T any](
 	return nil
 }
 
-func GetTrafficChartData(db *gorm.DB, rdb *redisutil.RedisClient, config *core.Config, timerange TimeRange) ([]TrafficChartData, error) {
+func GetTrafficChartData(db *gorm.DB, rdb *redisutil.RedisClient, config *core.Config, timerange TimeRange, deviceID *string) ([]TrafficChartData, error) {
 	return GetGenericChartData(
 		db, rdb, config, timerange, "",
 		loadFromPostgres,
@@ -147,10 +160,11 @@ func GetTrafficChartData(db *gorm.DB, rdb *redisutil.RedisClient, config *core.C
 			for _, entry := range models {
 				result = append(result, TrafficChartData{
 					Device: Device{
-						MAC:      entry.Device.MAC,
-						IP:       entry.Device.IP,
-						Label:    entry.Device.Label,
-						Hostname: entry.Device.Hostname,
+						MAC:       entry.Device.MAC,
+						IP:        entry.Device.IP,
+						Label:     entry.Device.Label,
+						UserLabel: entry.Device.Label,
+						Hostname:  entry.Device.Hostname,
 					},
 					Stats: []Traffic{{
 						Bucket:    entry.Bucket.Unix(),
@@ -168,10 +182,12 @@ func GetTrafficChartData(db *gorm.DB, rdb *redisutil.RedisClient, config *core.C
 			a.Stats = append(a.Stats, b.Stats...)
 			return a
 		},
+		filterTrafficByRange,
+		deviceID,
 	)
 }
 
-func GetDomainChartData(db *gorm.DB, rdb *redisutil.RedisClient, config *core.Config, timerange TimeRange) ([]DomainChartData, error) {
+func GetDomainChartData(db *gorm.DB, rdb *redisutil.RedisClient, config *core.Config, timerange TimeRange, deviceID *string) ([]DomainChartData, error) {
 	return GetGenericChartData(
 		db, rdb, config, timerange, "domain_",
 		loadDomainsFromPostgres,
@@ -184,10 +200,11 @@ func GetDomainChartData(db *gorm.DB, rdb *redisutil.RedisClient, config *core.Co
 				}
 				result = append(result, DomainChartData{
 					Device: Device{
-						MAC:      entry.Device.MAC,
-						IP:       entry.Device.IP,
-						Label:    entry.Device.Label,
-						Hostname: entry.Device.Hostname,
+						MAC:       entry.Device.MAC,
+						IP:        entry.Device.IP,
+						Label:     entry.Device.Label,
+						UserLabel: entry.Device.Label,
+						Hostname:  entry.Device.Hostname,
 					},
 					Stats: []DomainStat{{
 						Bucket:   entry.Bucket.Unix(),
@@ -204,10 +221,12 @@ func GetDomainChartData(db *gorm.DB, rdb *redisutil.RedisClient, config *core.Co
 			a.Stats = append(a.Stats, b.Stats...)
 			return a
 		},
+		filterDomainsByRange,
+		deviceID,
 	)
 }
 
-func GetProtoChartData(db *gorm.DB, rdb *redisutil.RedisClient, config *core.Config, timerange TimeRange) ([]ProtoChartData, error) {
+func GetProtoChartData(db *gorm.DB, rdb *redisutil.RedisClient, config *core.Config, timerange TimeRange, deviceID *string) ([]ProtoChartData, error) {
 	return GetGenericChartData(
 		db, rdb, config, timerange, "proto_",
 		loadProtosFromPostgres,
@@ -220,10 +239,11 @@ func GetProtoChartData(db *gorm.DB, rdb *redisutil.RedisClient, config *core.Con
 				}
 				result = append(result, ProtoChartData{
 					Device: Device{
-						MAC:      entry.Device.MAC,
-						IP:       entry.Device.IP,
-						Label:    entry.Device.Label,
-						Hostname: entry.Device.Hostname,
+						MAC:       entry.Device.MAC,
+						IP:        entry.Device.IP,
+						Label:     entry.Device.Label,
+						UserLabel: entry.Device.Label,
+						Hostname:  entry.Device.Hostname,
 					},
 					Stats: []ProtoStat{{
 						Bucket:   entry.Bucket.Unix(),
@@ -240,10 +260,12 @@ func GetProtoChartData(db *gorm.DB, rdb *redisutil.RedisClient, config *core.Con
 			a.Stats = append(a.Stats, b.Stats...)
 			return a
 		},
+		filterProtosByRange,
+		deviceID,
 	)
 }
 
-func GetCountryChartData(db *gorm.DB, rdb *redisutil.RedisClient, config *core.Config, timerange TimeRange) ([]CountryChartData, error) {
+func GetCountryChartData(db *gorm.DB, rdb *redisutil.RedisClient, config *core.Config, timerange TimeRange, deviceID *string) ([]CountryChartData, error) {
 	return GetGenericChartData(
 		db, rdb, config, timerange, "country_",
 		loadCountriesFromPostgres,
@@ -280,10 +302,11 @@ func GetCountryChartData(db *gorm.DB, rdb *redisutil.RedisClient, config *core.C
 
 				result = append(result, CountryChartData{
 					Device: Device{
-						MAC:      entry.Device.MAC,
-						IP:       entry.Device.IP,
-						Label:    entry.Device.Label,
-						Hostname: entry.Device.Hostname,
+						MAC:       entry.Device.MAC,
+						IP:        entry.Device.IP,
+						Label:     entry.Device.Label,
+						UserLabel: entry.Device.Label,
+						Hostname:  entry.Device.Hostname,
 					},
 					Stats: []CountryStat{{
 						Bucket:    entry.Bucket.Unix(),
@@ -301,5 +324,105 @@ func GetCountryChartData(db *gorm.DB, rdb *redisutil.RedisClient, config *core.C
 			a.Stats = append(a.Stats, b.Stats...)
 			return a
 		},
+		filterCountriesByRange,
+		deviceID,
 	)
+}
+
+func filterTrafficByRange(data []TrafficChartData, tr TimeRange) []TrafficChartData {
+	return filterByRange(data, tr, func(t TrafficChartData) []int64 {
+		out := make([]int64, 0, len(t.Stats))
+		for _, s := range t.Stats {
+			out = append(out, s.Bucket)
+		}
+		return out
+	}, func(t TrafficChartData, keep []bool) TrafficChartData {
+		stats := t.Stats[:0]
+		for i, s := range t.Stats {
+			if keep[i] {
+				stats = append(stats, s)
+			}
+		}
+		t.Stats = stats
+		return t
+	})
+}
+
+func filterDomainsByRange(data []DomainChartData, tr TimeRange) []DomainChartData {
+	return filterByRange(data, tr, func(t DomainChartData) []int64 {
+		out := make([]int64, 0, len(t.Stats))
+		for _, s := range t.Stats {
+			out = append(out, s.Bucket)
+		}
+		return out
+	}, func(t DomainChartData, keep []bool) DomainChartData {
+		stats := t.Stats[:0]
+		for i, s := range t.Stats {
+			if keep[i] {
+				stats = append(stats, s)
+			}
+		}
+		t.Stats = stats
+		return t
+	})
+}
+
+func filterProtosByRange(data []ProtoChartData, tr TimeRange) []ProtoChartData {
+	return filterByRange(data, tr, func(t ProtoChartData) []int64 {
+		out := make([]int64, 0, len(t.Stats))
+		for _, s := range t.Stats {
+			out = append(out, s.Bucket)
+		}
+		return out
+	}, func(t ProtoChartData, keep []bool) ProtoChartData {
+		stats := t.Stats[:0]
+		for i, s := range t.Stats {
+			if keep[i] {
+				stats = append(stats, s)
+			}
+		}
+		t.Stats = stats
+		return t
+	})
+}
+
+func filterCountriesByRange(data []CountryChartData, tr TimeRange) []CountryChartData {
+	return filterByRange(data, tr, func(t CountryChartData) []int64 {
+		out := make([]int64, 0, len(t.Stats))
+		for _, s := range t.Stats {
+			out = append(out, s.Bucket)
+		}
+		return out
+	}, func(t CountryChartData, keep []bool) CountryChartData {
+		stats := t.Stats[:0]
+		for i, s := range t.Stats {
+			if keep[i] {
+				stats = append(stats, s)
+			}
+		}
+		t.Stats = stats
+		return t
+	})
+}
+
+// filterByRange removes bucket entries outside the requested timerange.
+// It keeps devices that still have at least one bucket after filtering.
+func filterByRange[T any](data []T, tr TimeRange, buckets func(T) []int64, apply func(T, []bool) T) []T {
+	out := make([]T, 0, len(data))
+	for _, item := range data {
+		bs := buckets(item)
+		keep := make([]bool, len(bs))
+		kept := 0
+		for i, b := range bs {
+			if b >= tr.Start && b <= tr.End {
+				keep[i] = true
+				kept++
+			}
+		}
+		if kept == 0 {
+			continue
+		}
+		out = append(out, apply(item, keep))
+	}
+	return out
 }

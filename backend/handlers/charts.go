@@ -16,7 +16,7 @@ func (h *Handler) GetChartsTrafficHandler(c echo.Context) error {
 	traffic, err := aggregators.GetTrafficChartData(h.DB, h.RDB, h.Config, aggregators.TimeRange{
 		Start: req.From,
 		End:   req.To,
-	})
+	}, req.DeviceID)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echokitSchemas.DefaultInternalErrorResponse)
 	}
@@ -30,7 +30,7 @@ func (h *Handler) GetChartsDomainsHandler(c echo.Context) error {
 	data, err := aggregators.GetDomainChartData(h.DB, h.RDB, h.Config, aggregators.TimeRange{
 		Start: req.From,
 		End:   req.To,
-	})
+	}, req.DeviceID)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echokitSchemas.DefaultInternalErrorResponse)
 	}
@@ -44,7 +44,7 @@ func (h *Handler) GetChartsProtosHandler(c echo.Context) error {
 	data, err := aggregators.GetProtoChartData(h.DB, h.RDB, h.Config, aggregators.TimeRange{
 		Start: req.From,
 		End:   req.To,
-	})
+	}, req.DeviceID)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echokitSchemas.DefaultInternalErrorResponse)
 	}
@@ -58,7 +58,7 @@ func (h *Handler) GetChartsCountriesHandler(c echo.Context) error {
 	data, err := aggregators.GetCountryChartData(h.DB, h.RDB, h.Config, aggregators.TimeRange{
 		Start: req.From,
 		End:   req.To,
-	})
+	}, req.DeviceID)
 	if err != nil {
 		log.Printf("GetCountryChartData error: %v", err)
 		return c.JSON(http.StatusInternalServerError, echokitSchemas.DefaultInternalErrorResponse)
