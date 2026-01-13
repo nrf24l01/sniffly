@@ -12,9 +12,11 @@ import (
 
 func ConnectPacketGatewayClient(cfg *core.Config) (pb.PacketGatewayClient, error) {
 	kp := keepalive.ClientParameters{
-		Time:                10 * time.Second,
+		// Reduce ping frequency to avoid server ENHANCE_YOUR_CALM errors.
+		// PermitWithoutStream=false prevents pings when there are no active RPCs.
+		Time:                60 * time.Second,
 		Timeout:             20 * time.Second,
-		PermitWithoutStream: true,
+		PermitWithoutStream: false,
 	}
 
 	conn, err := grpc.NewClient(cfg.ServerAddress,
