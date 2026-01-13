@@ -589,7 +589,7 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/DeviceProtoSummary'
-  /captures:
+  /capture:
     post:
       tags: [Captures]
       summary: Создать краулер (capture worker)

@@ -10,7 +10,7 @@ import (
 
 
 func RegisterCapturerRoutes(e *echo.Echo, h *handlers.Handler) {
-	group := e.Group("/captures")
+	group := e.Group("/capture")
 	group.Use(echokitMW.JWTMiddleware(*h.Config.JWTConfig))
 
 	group.GET("", h.GetCapturersHandler)

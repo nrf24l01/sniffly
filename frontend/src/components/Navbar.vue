@@ -113,6 +113,7 @@ const router = useRouter()
 
 const navLinks = [
   { name: 'Home', routeName: 'Home' },
+  { name: 'Capturers', routeName: 'Capturers' },
 ]
 
 function logout() {
