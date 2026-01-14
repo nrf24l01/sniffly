@@ -176,6 +176,8 @@ export function useDashboard() {
   const countriesMode = ref<WidgetMode>('chart')
   const protosMode = ref<WidgetMode>('chart')
 
+  let refreshSeq = 0
+
   // Loading / errors
   const loadingCharts = ref(false)
   const loadingTables = ref<{ traffic?: boolean; domains?: boolean; countries?: boolean; protos?: boolean }>({})
@@ -258,6 +260,25 @@ export function useDashboard() {
     }
   }
 
+  async function refreshVisibleTables() {
+    const kinds: Array<'traffic' | 'domains' | 'countries' | 'protos'> = []
+    if (trafficMode.value === 'table') kinds.push('traffic')
+    if (domainsMode.value === 'table') kinds.push('domains')
+    if (countriesMode.value === 'table') kinds.push('countries')
+    if (protosMode.value === 'table') kinds.push('protos')
+
+    if (!kinds.length) return
+
+    // Fetch all visible tables in parallel; don't explode the reactive loop on failures.
+    await Promise.all(
+      kinds.map(k =>
+        ensureTable(k).catch(() => {
+          // ensureTable already sets `error`; ignore here.
+        })
+      )
+    )
+  }
+
   async function ensureTable(kind: 'traffic' | 'domains' | 'countries' | 'protos') {
     if (!auth.isAuthenticated) {
       router.replace({ name: 'Login' })
@@ -286,17 +307,19 @@ export function useDashboard() {
     }
   }
 
+  async function refreshForCurrentState() {
+    const seq = ++refreshSeq
+    await loadCharts()
+    if (seq !== refreshSeq) return
+    await refreshVisibleTables()
+  }
+
   watch([fromSeconds, toSeconds], () => {
-    void loadCharts()
+    void refreshForCurrentState()
   })
 
   watch(selectedDeviceIdsKey, () => {
-    // Clear caches and refresh whenever the device filter changes.
-    trafficTable.value = null
-    domainsTable.value = null
-    countriesTable.value = null
-    protosTable.value = null
-    void loadCharts()
+    void refreshForCurrentState()
   })
 
   onMounted(() => {
