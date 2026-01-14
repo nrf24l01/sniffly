@@ -51,24 +51,34 @@ export interface ProtoChartResponse {
   stats: DeviceProtoBucket[]
 }
 
+function buildParams(from: UnixSeconds, to: UnixSeconds, deviceIds?: string[]) {
+  const params = new URLSearchParams()
+  params.set('from', String(from))
+  params.set('to', String(to))
+  for (const id of deviceIds ?? []) {
+    if (id) params.append('device_id', id)
+  }
+  return params
+}
+
 export const chartsService = {
-  async traffic(from: UnixSeconds, to: UnixSeconds) {
-    const res = await api.get<TrafficChartResponse>('/charts/traffic', { params: { from, to } })
+  async traffic(from: UnixSeconds, to: UnixSeconds, deviceIds?: string[]) {
+    const res = await api.get<TrafficChartResponse>('/charts/traffic', { params: buildParams(from, to, deviceIds) })
     return res.data
   },
 
-  async domains(from: UnixSeconds, to: UnixSeconds) {
-    const res = await api.get<DomainChartResponse>('/charts/domains', { params: { from, to } })
+  async domains(from: UnixSeconds, to: UnixSeconds, deviceIds?: string[]) {
+    const res = await api.get<DomainChartResponse>('/charts/domains', { params: buildParams(from, to, deviceIds) })
     return res.data
   },
 
-  async countries(from: UnixSeconds, to: UnixSeconds) {
-    const res = await api.get<CountryChartResponse>('/charts/countries', { params: { from, to } })
+  async countries(from: UnixSeconds, to: UnixSeconds, deviceIds?: string[]) {
+    const res = await api.get<CountryChartResponse>('/charts/countries', { params: buildParams(from, to, deviceIds) })
     return res.data
   },
 
-  async protos(from: UnixSeconds, to: UnixSeconds) {
-    const res = await api.get<ProtoChartResponse>('/charts/protos', { params: { from, to } })
+  async protos(from: UnixSeconds, to: UnixSeconds, deviceIds?: string[]) {
+    const res = await api.get<ProtoChartResponse>('/charts/protos', { params: buildParams(from, to, deviceIds) })
     return res.data
   }
 }

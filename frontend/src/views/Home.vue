@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 
+import { ArrowPathIcon, PencilSquareIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+
 import LineChart from '@/components/charts/LineChart.vue'
 import BarChart from '@/components/charts/BarChart.vue'
 import StatCard from '@/components/ui/StatCard.vue'
@@ -10,6 +12,7 @@ import { useDashboard, type WidgetMode } from '@/composables/useDashboard'
 import type { RangePreset } from '@/types/range'
 import { useDashboardDerived } from '@/composables/useDashboardDerived'
 import { formatBytes, formatNumber, formatDateTime } from '@/utils/format'
+import type { DeviceListItem } from '@/service/devices'
 
 const {
   preset,
@@ -19,6 +22,10 @@ const {
   toExpr,
   absoluteFromMs,
   absoluteToMs,
+  devices,
+  loadingDevices,
+  devicesError,
+  selectedDeviceIds,
   trafficMode,
   domainsMode,
   countriesMode,
@@ -36,6 +43,8 @@ const {
   error,
   loadCharts,
   ensureTable,
+  loadDevices,
+  updateDeviceLabel,
   applyExprRange,
   applyAbsoluteRange
 } = useDashboard()
@@ -123,6 +132,71 @@ watch(protosMode, m => m === 'table' && ensureTable('protos'))
 function onSwitch(widget: 'traffic' | 'domains' | 'countries' | 'protos', m: WidgetMode) {
   if (m === 'table') return ensureTable(widget)
 }
+
+const allDevices = computed(() => (selectedDeviceIds.value?.length ?? 0) === 0)
+
+const sortedDevices = computed(() => {
+  const arr = Array.isArray(devices.value) ? devices.value : []
+  return [...arr].sort((a, b) => {
+    const an = (a.user_label ?? '').trim() || a.mac
+    const bn = (b.user_label ?? '').trim() || b.mac
+    return an.localeCompare(bn)
+  })
+})
+
+const devicesHint = computed(() => {
+  if (allDevices.value) return 'Показываются все устройства'
+  return `Выбрано: ${(selectedDeviceIds.value?.length ?? 0)} из ${sortedDevices.value.length}`
+})
+
+function isSelectedDevice(id: string) {
+  return (selectedDeviceIds.value ?? []).includes(id)
+}
+
+function toggleAllDevices(next: boolean) {
+  if (next) selectedDeviceIds.value = []
+}
+
+function toggleDevice(id: string, next: boolean) {
+  const current = new Set(selectedDeviceIds.value ?? [])
+  if (next) current.add(id)
+  else current.delete(id)
+  selectedDeviceIds.value = Array.from(current)
+}
+
+const showEditDevice = ref(false)
+const selectedDevice = ref<DeviceListItem | null>(null)
+const editLabel = ref('')
+const editWorking = ref(false)
+const editError = ref<string | null>(null)
+
+function openEditDevice(d: DeviceListItem) {
+  selectedDevice.value = d
+  editLabel.value = d.user_label ?? ''
+  editError.value = null
+  showEditDevice.value = true
+}
+
+function closeEditDevice() {
+  showEditDevice.value = false
+  selectedDevice.value = null
+  editLabel.value = ''
+  editError.value = null
+}
+
+async function saveEditDevice() {
+  if (!selectedDevice.value) return
+  editWorking.value = true
+  editError.value = null
+  try {
+    await updateDeviceLabel(selectedDevice.value.uuid, editLabel.value)
+    closeEditDevice()
+  } catch (e: any) {
+    editError.value = e?.response?.data?.message ?? e?.message ?? String(e)
+  } finally {
+    editWorking.value = false
+  }
+}
 </script>
 
 <template>
@@ -164,6 +238,83 @@ function onSwitch(widget: 'traffic' | 'domains' | 'countries' | 'protos', m: Wid
           </button>
         </div>
       </header>
+
+      <section class="mt-4 rounded-2xl border border-slate-200/70 bg-white/70 p-4 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-900/50">
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div class="text-sm font-semibold text-slate-900 dark:text-slate-50">Устройства</div>
+            <div class="mt-0.5 text-xs text-slate-500 dark:text-slate-300">{{ devicesHint }}</div>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button
+              class="inline-flex items-center gap-2 rounded-xl border border-slate-200/70 bg-white/70 px-3 py-2 text-sm font-semibold text-slate-900 shadow-sm backdrop-blur transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-50 dark:hover:bg-slate-900"
+              :disabled="loadingDevices"
+              @click="loadDevices"
+            >
+              <ArrowPathIcon class="h-4 w-4" :class="loadingDevices ? 'animate-spin' : ''" />
+              {{ loadingDevices ? 'Загрузка…' : 'Обновить' }}
+            </button>
+          </div>
+        </div>
+
+        <div v-if="devicesError" class="mt-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-200">
+          {{ devicesError }}
+        </div>
+
+        <details class="mt-3">
+          <summary class="cursor-pointer select-none rounded-xl border border-slate-200/70 bg-white/60 px-3 py-2 text-sm font-semibold text-slate-900 hover:bg-white dark:border-slate-800 dark:bg-slate-900/40 dark:text-slate-50 dark:hover:bg-slate-900">
+            Выбрать устройства
+          </summary>
+
+          <div class="mt-3 flex flex-wrap items-center gap-3">
+            <label class="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+              <input
+                type="checkbox"
+                class="h-4 w-4 rounded border-slate-300 text-green-600 focus:ring-green-500"
+                :checked="allDevices"
+                @change="toggleAllDevices(($event.target as HTMLInputElement).checked)"
+              />
+              Все устройства
+            </label>
+            <span class="text-xs text-slate-500 dark:text-slate-300">(если ничего не выбрано — тоже все)</span>
+          </div>
+
+          <div v-if="sortedDevices.length" class="mt-3 max-h-72 overflow-auto rounded-xl border border-slate-200/70 bg-white/60 dark:border-slate-800 dark:bg-slate-900/40">
+            <div
+              v-for="d in sortedDevices"
+              :key="d.uuid"
+              class="flex items-start justify-between gap-3 border-b border-slate-200/70 px-3 py-2 last:border-b-0 dark:border-slate-800"
+            >
+              <label class="flex flex-1 cursor-pointer items-start gap-3">
+                <input
+                  type="checkbox"
+                  class="mt-1 h-4 w-4 rounded border-slate-300 text-green-600 focus:ring-green-500"
+                  :checked="isSelectedDevice(d.uuid)"
+                  @change="toggleDevice(d.uuid, ($event.target as HTMLInputElement).checked)"
+                />
+                <div class="min-w-0">
+                  <div class="truncate text-sm font-semibold text-slate-900 dark:text-slate-50">{{ d.user_label || d.mac }}</div>
+                  <div class="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-300">{{ d.mac }} • {{ d.ip }}</div>
+                </div>
+              </label>
+
+              <button
+                class="inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200/70 px-2 py-1 text-xs font-semibold text-slate-800 transition hover:bg-slate-100 dark:border-slate-800 dark:text-slate-100 dark:hover:bg-slate-800"
+                @click="openEditDevice(d)"
+                title="Изменить метку"
+              >
+                <PencilSquareIcon class="h-4 w-4" />
+                Метка
+              </button>
+            </div>
+          </div>
+
+          <div v-else class="mt-3 text-sm text-slate-500 dark:text-slate-300">
+            {{ loadingDevices ? 'Загрузка списка устройств…' : 'Устройства не найдены.' }}
+          </div>
+        </details>
+      </section>
 
       <section v-if="customOpen" class="mt-4 grid gap-3 md:grid-cols-2">
         <div class="rounded-2xl border border-slate-200/70 bg-white/70 p-3 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-900/50">
@@ -447,6 +598,59 @@ function onSwitch(widget: 'traffic' | 'domains' | 'countries' | 'protos', m: Wid
           </div>
         </div>
       </section>
+
+      <div v-if="showEditDevice" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 px-4">
+        <div class="w-full max-w-lg rounded-2xl border border-slate-200/70 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <h2 class="text-xl font-semibold text-slate-900 dark:text-slate-50">Изменить метку устройства</h2>
+              <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                {{ selectedDevice ? `${selectedDevice.mac} • ${selectedDevice.ip}` : '' }}
+              </p>
+            </div>
+
+            <button
+              class="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-50"
+              @click="closeEditDevice"
+              aria-label="Close"
+            >
+              <XMarkIcon class="h-5 w-5" />
+            </button>
+          </div>
+
+          <div v-if="editError" class="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-200">
+            {{ editError }}
+          </div>
+
+          <div class="mt-4">
+            <label class="block text-sm font-medium text-slate-700 dark:text-slate-200">Метка (user_label)</label>
+            <input
+              v-model="editLabel"
+              type="text"
+              class="mt-1 w-full rounded-xl border border-slate-200/70 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm outline-none transition focus:border-green-500 focus:ring-2 focus:ring-green-500/20 dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-50"
+              placeholder="Например, Office PC"
+            />
+          </div>
+
+          <div class="mt-6 flex justify-end gap-3">
+            <button
+              class="rounded-xl px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+              :disabled="editWorking"
+              @click="closeEditDevice"
+            >
+              Отмена
+            </button>
+            <button
+              class="inline-flex items-center justify-center gap-2 rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-green-400"
+              :disabled="editWorking || !editLabel.trim()"
+              @click="saveEditDevice"
+            >
+              <ArrowPathIcon v-if="editWorking" class="h-4 w-4 animate-spin" />
+              <span>Сохранить</span>
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   </main>
 </template>

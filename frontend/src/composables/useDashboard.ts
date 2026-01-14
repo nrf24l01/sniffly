@@ -6,6 +6,7 @@ import { useRangeStore } from '@/stores/range'
 
 import { chartsService, type CountryChartResponse, type DomainChartResponse, type ProtoChartResponse, type TrafficChartResponse } from '@/service/charts'
 import { tablesService, type CountryTableResponse, type DomainTableResponse, type ProtoTableResponse, type TrafficTableResponse } from '@/service/tables'
+import { devicesService, type DeviceListItem } from '@/service/devices'
 
 import type { RangeMode, RangePreset } from '@/types/range'
 
@@ -150,6 +151,25 @@ export function useDashboard() {
   const fromSeconds = computed(() => Math.floor(range.value.fromMs / 1000))
   const toSeconds = computed(() => Math.floor(range.value.toMs / 1000))
 
+  // Devices filter (multi-select). Empty selection = all devices.
+  const devices = ref<DeviceListItem[]>([])
+  const loadingDevices = ref(false)
+  const devicesError = ref<string | null>(null)
+  const selectedDeviceIds = ref<string[]>([])
+
+  const selectedDeviceIdsKey = computed(() => {
+    const ids = (selectedDeviceIds.value ?? []).filter(Boolean)
+    ids.sort()
+    return ids.join(',')
+  })
+
+  const selectedDeviceIdsNormalized = computed(() => {
+    const ids = (selectedDeviceIds.value ?? []).filter(Boolean)
+    if (!ids.length) return undefined
+    ids.sort()
+    return ids
+  })
+
   // Per-widget mode
   const trafficMode = ref<WidgetMode>('chart')
   const domainsMode = ref<WidgetMode>('chart')
@@ -172,6 +192,38 @@ export function useDashboard() {
   const countriesTable = ref<CountryTableResponse | null>(null)
   const protosTable = ref<ProtoTableResponse | null>(null)
 
+  async function loadDevices() {
+    if (!auth.isAuthenticated) return
+
+    loadingDevices.value = true
+    devicesError.value = null
+    try {
+      const data = await devicesService.list()
+      devices.value = Array.isArray(data) ? data : []
+
+      // Drop selections that no longer exist.
+      const known = new Set(devices.value.map(d => d.uuid))
+      selectedDeviceIds.value = (selectedDeviceIds.value ?? []).filter(id => known.has(id))
+    } catch (e: any) {
+      devicesError.value = e?.response?.data?.message ?? e?.message ?? String(e)
+    } finally {
+      loadingDevices.value = false
+    }
+  }
+
+  async function updateDeviceLabel(deviceId: string, userLabel: string) {
+    if (!auth.isAuthenticated) {
+      router.replace({ name: 'Login' })
+      return
+    }
+    const trimmed = userLabel.trim()
+    if (!trimmed) throw new Error('Label cannot be empty')
+
+    const updated = await devicesService.updateLabel(deviceId, trimmed)
+    devices.value = devices.value.map(d => (d.uuid === updated.uuid ? updated : d))
+    return updated
+  }
+
   async function loadCharts() {
     if (!auth.isAuthenticated) {
       router.replace({ name: 'Login' })
@@ -189,10 +241,10 @@ export function useDashboard() {
 
     try {
       const [traffic, domains, countries, protos] = await Promise.all([
-        chartsService.traffic(fromSeconds.value, toSeconds.value),
-        chartsService.domains(fromSeconds.value, toSeconds.value),
-        chartsService.countries(fromSeconds.value, toSeconds.value),
-        chartsService.protos(fromSeconds.value, toSeconds.value)
+        chartsService.traffic(fromSeconds.value, toSeconds.value, selectedDeviceIdsNormalized.value),
+        chartsService.domains(fromSeconds.value, toSeconds.value, selectedDeviceIdsNormalized.value),
+        chartsService.countries(fromSeconds.value, toSeconds.value, selectedDeviceIdsNormalized.value),
+        chartsService.protos(fromSeconds.value, toSeconds.value, selectedDeviceIdsNormalized.value)
       ])
 
       trafficChart.value = traffic
@@ -222,10 +274,10 @@ export function useDashboard() {
     loadingTables.value = { ...loadingTables.value, [kind]: true }
 
     try {
-      if (kind === 'traffic') trafficTable.value = await tablesService.traffic(fromSeconds.value, toSeconds.value)
-      if (kind === 'domains') domainsTable.value = await tablesService.domains(fromSeconds.value, toSeconds.value)
-      if (kind === 'countries') countriesTable.value = await tablesService.countries(fromSeconds.value, toSeconds.value)
-      if (kind === 'protos') protosTable.value = await tablesService.protos(fromSeconds.value, toSeconds.value)
+      if (kind === 'traffic') trafficTable.value = await tablesService.traffic(fromSeconds.value, toSeconds.value, selectedDeviceIdsNormalized.value)
+      if (kind === 'domains') domainsTable.value = await tablesService.domains(fromSeconds.value, toSeconds.value, selectedDeviceIdsNormalized.value)
+      if (kind === 'countries') countriesTable.value = await tablesService.countries(fromSeconds.value, toSeconds.value, selectedDeviceIdsNormalized.value)
+      if (kind === 'protos') protosTable.value = await tablesService.protos(fromSeconds.value, toSeconds.value, selectedDeviceIdsNormalized.value)
     } catch (e: any) {
       error.value = e?.response?.data?.message ?? e?.message ?? String(e)
       throw e
@@ -238,7 +290,17 @@ export function useDashboard() {
     void loadCharts()
   })
 
+  watch(selectedDeviceIdsKey, () => {
+    // Clear caches and refresh whenever the device filter changes.
+    trafficTable.value = null
+    domainsTable.value = null
+    countriesTable.value = null
+    protosTable.value = null
+    void loadCharts()
+  })
+
   onMounted(() => {
+    void loadDevices()
     void loadCharts()
   })
 
@@ -254,6 +316,12 @@ export function useDashboard() {
     absoluteToMs,
     fromSeconds,
     toSeconds,
+
+    // devices
+    devices,
+    loadingDevices,
+    devicesError,
+    selectedDeviceIds,
 
     // modes
     trafficMode,
@@ -280,6 +348,8 @@ export function useDashboard() {
     // actions
     loadCharts,
     ensureTable,
+    loadDevices,
+    updateDeviceLabel,
     applyExprRange,
     applyAbsoluteRange
   }
