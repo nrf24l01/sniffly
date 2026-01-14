@@ -55,11 +55,49 @@ func parseHTTP(payload []byte, src, dst net.IP, size int) *SnifPacketDetailsHTTP
 		} else {
 			host = string(payload[start:])
 		}
+	} else if hIdx := indexOf(payload, []byte("\r\nhost:")); hIdx >= 0 {
+		start := hIdx + len("\r\nhost:")
+		if start < len(payload) && payload[start] == ' ' {
+			start++
+		}
+		if hEndRel := indexOf(payload[start:], []byte("\r\n")); hEndRel >= 0 {
+			host = string(payload[start : start+hEndRel])
+		} else {
+			host = string(payload[start:])
+		}
+	}
+
+	if host == "" && (len(path) > 7 && (path[:7] == "http://" || (len(path) > 8 && path[:8] == "https://"))) {
+		start := 0
+		if path[:7] == "http://" {
+			start = 7
+		} else {
+			start = 8
+		}
+		rest := path[start:]
+		if slash := indexOf([]byte(rest), []byte("/")); slash >= 0 {
+			host = rest[:slash]
+		} else {
+			host = rest
+		}
+	}
+
+	if host == "" && method == "CONNECT" {
+		if colon := indexOf([]byte(path), []byte(":")); colon >= 0 {
+			host = path[:colon]
+		} else {
+			host = path
+		}
+	}
+
+	if host != "" {
+		if colon := indexOf([]byte(host), []byte(":")); colon >= 0 {
+			host = host[:colon]
+		}
+		sni = host
 	}
 
 	body = ""
-
-	sni = ""
 
 	return &SnifPacketDetailsHTTP{
 		Method: method,
