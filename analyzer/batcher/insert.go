@@ -3,6 +3,7 @@ package batcher
 import (
 	"context"
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/google/uuid"
@@ -10,6 +11,8 @@ import (
 
 func (c *CHBatch) Insert(ctx context.Context, b *Batcher) error {
 	// Use typed insert helper (fixed table names inside) to avoid dynamic SQL identifiers
+	log.Printf("Inserting %d device traffics, %d device domains, %d device countries, %d device protos",
+		len(c.DeviceTraffics), len(c.DeviceDomains), len(c.DeviceCountries), len(c.DeviceProtos))
 	insertAnyStat(ctx, c.DeviceTraffics, b)
 	insertAnyStat(ctx, c.DeviceDomains, b)
 	insertAnyStat(ctx, c.DeviceCountries, b)
