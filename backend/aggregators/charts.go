@@ -3,8 +3,10 @@ package aggregators
 import (
 	"encoding/json"
 	"log"
+	"sort"
 	"time"
 
+	"github.com/google/uuid"
 	redisutil "github.com/nrf24l01/go-web-utils/redis"
 	analyzerModels "github.com/nrf24l01/sniffly/analyzer/postgres"
 	"github.com/nrf24l01/sniffly/backend/core"
@@ -17,13 +19,13 @@ func GetGenericChartData[TChartData any, TPostgresModel any](
 	config *core.Config,
 	timerange TimeRange,
 	cachePrefix string,
-	loadPostgres func(*gorm.DB, []time.Time, *string) ([]TPostgresModel, error),
+	loadPostgres func(*gorm.DB, []time.Time, []uuid.UUID) ([]TPostgresModel, error),
 	convert func([]TPostgresModel) []TChartData,
 	getTimestamp func(TChartData) int64,
 	getDeviceMAC func(TChartData) string,
 	mergeStats func(TChartData, TChartData) TChartData,
 	filter func([]TChartData, TimeRange) []TChartData,
-	deviceID *string,
+	deviceIDs []uuid.UUID,
 ) ([]TChartData, error) {
 	cacheVersions, err := loadCacheVersionsFromPostgres(db, timerange)
 	if err != nil {
@@ -34,7 +36,7 @@ func GetGenericChartData[TChartData any, TPostgresModel any](
 	days_from_cache := []time.Time{}
 
 	// Device-scoped requests must bypass day cache (cache is not device-aware).
-	if deviceID == nil {
+	if len(deviceIDs) == 0 {
 		data_per_day_cache, days_from_cache, err = getCacheEntriesPerInterval[TChartData](config, rdb, timerange, cacheVersions, cachePrefix)
 		if err != nil {
 			return nil, err
@@ -43,7 +45,7 @@ func GetGenericChartData[TChartData any, TPostgresModel any](
 
 	non_cached_days := getNonCachedDays(timerange, days_from_cache)
 
-	data_per_day_uncache, err := loadPostgres(db, non_cached_days, deviceID)
+	data_per_day_uncache, err := loadPostgres(db, non_cached_days, deviceIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -151,21 +153,118 @@ func cacheUncachedData[T any](
 	return nil
 }
 
-func GetTrafficChartData(db *gorm.DB, rdb *redisutil.RedisClient, config *core.Config, timerange TimeRange, deviceID *string) ([]TrafficChartData, error) {
-	return GetGenericChartData(
-		db, rdb, config, timerange, "",
+
+func compressTrafficBuckets(stats []Traffic) []Traffic {
+	if len(stats) == 0 {
+		return nil
+	}
+	acc := make(map[int64]Traffic, len(stats))
+	for _, s := range stats {
+		x := acc[s.Bucket]
+		x.Bucket = s.Bucket
+		x.UpBytes += s.UpBytes
+		x.DownBytes += s.DownBytes
+		x.ReqCount += s.ReqCount
+		acc[s.Bucket] = x
+	}
+	out := make([]Traffic, 0, len(acc))
+	for _, v := range acc {
+		out = append(out, v)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Bucket < out[j].Bucket })
+	return out
+}
+
+func compressDomainBuckets(stats []DomainStat) []DomainStat {
+	if len(stats) == 0 {
+		return nil
+	}
+	acc := make(map[int64]DomainStat, len(stats))
+	for _, s := range stats {
+		x := acc[s.Bucket]
+		x.Bucket = s.Bucket
+		if x.Domains == nil {
+			x.Domains = make(map[string]uint64)
+		}
+		for k, v := range s.Domains {
+			x.Domains[k] += v
+		}
+		x.ReqCount += s.ReqCount
+		acc[s.Bucket] = x
+	}
+	out := make([]DomainStat, 0, len(acc))
+	for _, v := range acc {
+		out = append(out, v)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Bucket < out[j].Bucket })
+	return out
+}
+
+func compressProtoBuckets(stats []ProtoStat) []ProtoStat {
+	if len(stats) == 0 {
+		return nil
+	}
+	acc := make(map[int64]ProtoStat, len(stats))
+	for _, s := range stats {
+		x := acc[s.Bucket]
+		x.Bucket = s.Bucket
+		if x.Protos == nil {
+			x.Protos = make(map[string]uint64)
+		}
+		for k, v := range s.Protos {
+			x.Protos[k] += v
+		}
+		x.ReqCount += s.ReqCount
+		acc[s.Bucket] = x
+	}
+	out := make([]ProtoStat, 0, len(acc))
+	for _, v := range acc {
+		out = append(out, v)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Bucket < out[j].Bucket })
+	return out
+}
+
+func compressCountryBuckets(stats []CountryStat) []CountryStat {
+	if len(stats) == 0 {
+		return nil
+	}
+	acc := make(map[int64]CountryStat, len(stats))
+	for _, s := range stats {
+		x := acc[s.Bucket]
+		x.Bucket = s.Bucket
+		if x.Countries == nil {
+			x.Countries = make(map[string]uint64)
+		}
+		if x.Companies == nil {
+			x.Companies = make(map[string]uint64)
+		}
+		for k, v := range s.Countries {
+			x.Countries[k] += v
+		}
+		for k, v := range s.Companies {
+			x.Companies[k] += v
+		}
+		x.ReqCount += s.ReqCount
+		acc[s.Bucket] = x
+	}
+	out := make([]CountryStat, 0, len(acc))
+	for _, v := range acc {
+		out = append(out, v)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Bucket < out[j].Bucket })
+	return out
+}
+
+func GetTrafficChartData(db *gorm.DB, rdb *redisutil.RedisClient, config *core.Config, timerange TimeRange, deviceIDs []uuid.UUID) (TrafficChartResponse, error) {
+	merged, err := GetGenericChartData(
+		db, rdb, config, timerange, "v2_traffic_",
 		loadFromPostgres,
 		func(models []analyzerModels.DeviceTraffic5s) []TrafficChartData {
 			var result []TrafficChartData
 			for _, entry := range models {
 				result = append(result, TrafficChartData{
-					Device: Device{
-						MAC:       entry.Device.MAC,
-						IP:        entry.Device.IP,
-						Label:     entry.Device.Label,
-						UserLabel: entry.Device.Label,
-						Hostname:  entry.Device.Hostname,
-					},
+					Device: Device{MAC: "__all__"},
 					Stats: []Traffic{{
 						Bucket:    entry.Bucket.Unix(),
 						UpBytes:   entry.UpBytes,
@@ -183,13 +282,23 @@ func GetTrafficChartData(db *gorm.DB, rdb *redisutil.RedisClient, config *core.C
 			return a
 		},
 		filterTrafficByRange,
-		deviceID,
+		deviceIDs,
 	)
+	if err != nil {
+		return TrafficChartResponse{}, err
+	}
+
+	if len(merged) == 0 {
+		return TrafficChartResponse{Stats: []Traffic{}}, nil
+	}
+
+	stats := compressTrafficBuckets(merged[0].Stats)
+	return TrafficChartResponse{Stats: stats}, nil
 }
 
-func GetDomainChartData(db *gorm.DB, rdb *redisutil.RedisClient, config *core.Config, timerange TimeRange, deviceID *string) ([]DomainChartData, error) {
-	return GetGenericChartData(
-		db, rdb, config, timerange, "domain_",
+func GetDomainChartData(db *gorm.DB, rdb *redisutil.RedisClient, config *core.Config, timerange TimeRange, deviceIDs []uuid.UUID) (DomainChartResponse, error) {
+	merged, err := GetGenericChartData(
+		db, rdb, config, timerange, "v2_domain_",
 		loadDomainsFromPostgres,
 		func(models []analyzerModels.DeviceDomain5s) []DomainChartData {
 			var result []DomainChartData
@@ -199,13 +308,7 @@ func GetDomainChartData(db *gorm.DB, rdb *redisutil.RedisClient, config *core.Co
 					continue
 				}
 				result = append(result, DomainChartData{
-					Device: Device{
-						MAC:       entry.Device.MAC,
-						IP:        entry.Device.IP,
-						Label:     entry.Device.Label,
-						UserLabel: entry.Device.Label,
-						Hostname:  entry.Device.Hostname,
-					},
+					Device: Device{MAC: "__all__"},
 					Stats: []DomainStat{{
 						Bucket:   entry.Bucket.Unix(),
 						Domains:  domains,
@@ -222,13 +325,21 @@ func GetDomainChartData(db *gorm.DB, rdb *redisutil.RedisClient, config *core.Co
 			return a
 		},
 		filterDomainsByRange,
-		deviceID,
+		deviceIDs,
 	)
+	if err != nil {
+		return DomainChartResponse{}, err
+	}
+	if len(merged) == 0 {
+		return DomainChartResponse{Stats: []DomainStat{}}, nil
+	}
+	stats := compressDomainBuckets(merged[0].Stats)
+	return DomainChartResponse{Stats: stats}, nil
 }
 
-func GetProtoChartData(db *gorm.DB, rdb *redisutil.RedisClient, config *core.Config, timerange TimeRange, deviceID *string) ([]ProtoChartData, error) {
-	return GetGenericChartData(
-		db, rdb, config, timerange, "proto_",
+func GetProtoChartData(db *gorm.DB, rdb *redisutil.RedisClient, config *core.Config, timerange TimeRange, deviceIDs []uuid.UUID) (ProtoChartResponse, error) {
+	merged, err := GetGenericChartData(
+		db, rdb, config, timerange, "v2_proto_",
 		loadProtosFromPostgres,
 		func(models []analyzerModels.DeviceProto5s) []ProtoChartData {
 			var result []ProtoChartData
@@ -238,13 +349,7 @@ func GetProtoChartData(db *gorm.DB, rdb *redisutil.RedisClient, config *core.Con
 					continue
 				}
 				result = append(result, ProtoChartData{
-					Device: Device{
-						MAC:       entry.Device.MAC,
-						IP:        entry.Device.IP,
-						Label:     entry.Device.Label,
-						UserLabel: entry.Device.Label,
-						Hostname:  entry.Device.Hostname,
-					},
+					Device: Device{MAC: "__all__"},
 					Stats: []ProtoStat{{
 						Bucket:   entry.Bucket.Unix(),
 						Protos:   protos,
@@ -261,13 +366,21 @@ func GetProtoChartData(db *gorm.DB, rdb *redisutil.RedisClient, config *core.Con
 			return a
 		},
 		filterProtosByRange,
-		deviceID,
+		deviceIDs,
 	)
+	if err != nil {
+		return ProtoChartResponse{}, err
+	}
+	if len(merged) == 0 {
+		return ProtoChartResponse{Stats: []ProtoStat{}}, nil
+	}
+	stats := compressProtoBuckets(merged[0].Stats)
+	return ProtoChartResponse{Stats: stats}, nil
 }
 
-func GetCountryChartData(db *gorm.DB, rdb *redisutil.RedisClient, config *core.Config, timerange TimeRange, deviceID *string) ([]CountryChartData, error) {
-	return GetGenericChartData(
-		db, rdb, config, timerange, "country_",
+func GetCountryChartData(db *gorm.DB, rdb *redisutil.RedisClient, config *core.Config, timerange TimeRange, deviceIDs []uuid.UUID) (CountryChartResponse, error) {
+	merged, err := GetGenericChartData(
+		db, rdb, config, timerange, "v2_country_",
 		loadCountriesFromPostgres,
 		func(models []analyzerModels.DeviceCountry5s) []CountryChartData {
 			var result []CountryChartData
@@ -301,13 +414,7 @@ func GetCountryChartData(db *gorm.DB, rdb *redisutil.RedisClient, config *core.C
 				}
 
 				result = append(result, CountryChartData{
-					Device: Device{
-						MAC:       entry.Device.MAC,
-						IP:        entry.Device.IP,
-						Label:     entry.Device.Label,
-						UserLabel: entry.Device.Label,
-						Hostname:  entry.Device.Hostname,
-					},
+					Device: Device{MAC: "__all__"},
 					Stats: []CountryStat{{
 						Bucket:    entry.Bucket.Unix(),
 						Countries: countriesMap,
@@ -325,8 +432,16 @@ func GetCountryChartData(db *gorm.DB, rdb *redisutil.RedisClient, config *core.C
 			return a
 		},
 		filterCountriesByRange,
-		deviceID,
+		deviceIDs,
 	)
+	if err != nil {
+		return CountryChartResponse{}, err
+	}
+	if len(merged) == 0 {
+		return CountryChartResponse{Stats: []CountryStat{}}, nil
+	}
+	stats := compressCountryBuckets(merged[0].Stats)
+	return CountryChartResponse{Stats: stats}, nil
 }
 
 func filterTrafficByRange(data []TrafficChartData, tr TimeRange) []TrafficChartData {

@@ -13,10 +13,10 @@ export interface DeviceTrafficBucket {
   bucket: number
   up_bytes: number
   down_bytes: number
+  req_count?: number
 }
 
-export interface DeviceTrafficItem {
-  device: DeviceResponse
+export interface TrafficChartResponse {
   stats: DeviceTrafficBucket[]
 }
 
@@ -26,53 +26,49 @@ export interface DeviceDomainBucket {
   req_count: number
 }
 
-export interface DeviceDomainItem {
-  device: DeviceResponse
+export interface DomainChartResponse {
   stats: DeviceDomainBucket[]
 }
 
 export interface DeviceCountryBucket {
   bucket: number
-  countries: string[]
-  companies: string[]
+  countries: Record<string, number>
+  companies: Record<string, number>
   req_count: number
 }
 
-export interface DeviceCountryItem {
-  device: DeviceResponse
+export interface CountryChartResponse {
   stats: DeviceCountryBucket[]
 }
 
 export interface DeviceProtoBucket {
   bucket: number
-  protos: string[]
-  companies: string[]
+  protos: Record<string, number>
   req_count: number
 }
 
-export interface DeviceProtoItem {
-  device: DeviceResponse
+export interface ProtoChartResponse {
   stats: DeviceProtoBucket[]
 }
 
 export const chartsService = {
   async traffic(from: UnixSeconds, to: UnixSeconds) {
-    const res = await api.get<DeviceTrafficItem[]>('/charts/traffic', { params: { from, to } })
+    const res = await api.get<TrafficChartResponse>('/charts/traffic', { params: { from, to } })
     return res.data
   },
 
   async domains(from: UnixSeconds, to: UnixSeconds) {
-    const res = await api.get<DeviceDomainItem[]>('/charts/domains', { params: { from, to } })
+    const res = await api.get<DomainChartResponse>('/charts/domains', { params: { from, to } })
     return res.data
   },
 
   async countries(from: UnixSeconds, to: UnixSeconds) {
-    const res = await api.get<DeviceCountryItem[]>('/charts/countries', { params: { from, to } })
+    const res = await api.get<CountryChartResponse>('/charts/countries', { params: { from, to } })
     return res.data
   },
 
   async protos(from: UnixSeconds, to: UnixSeconds) {
-    const res = await api.get<DeviceProtoItem[]>('/charts/protos', { params: { from, to } })
+    const res = await api.get<ProtoChartResponse>('/charts/protos', { params: { from, to } })
     return res.data
   }
 }

@@ -4,8 +4,8 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useRangeStore } from '@/stores/range'
 
-import { chartsService, type DeviceDomainItem, type DeviceTrafficItem, type DeviceCountryItem, type DeviceProtoItem } from '@/service/charts'
-import { tablesService, type DeviceTrafficSummary, type DeviceDomainSummary, type DeviceCountrySummary, type DeviceProtoSummary } from '@/service/tables'
+import { chartsService, type CountryChartResponse, type DomainChartResponse, type ProtoChartResponse, type TrafficChartResponse } from '@/service/charts'
+import { tablesService, type CountryTableResponse, type DomainTableResponse, type ProtoTableResponse, type TrafficTableResponse } from '@/service/tables'
 
 import type { RangeMode, RangePreset } from '@/types/range'
 
@@ -162,32 +162,15 @@ export function useDashboard() {
   const error = ref<string | null>(null)
 
   // Data
-  const trafficChart = ref<DeviceTrafficItem[]>([])
-  const domainsChart = ref<DeviceDomainItem[] | null>(null)
-  const countriesChart = ref<DeviceCountryItem[] | null>(null)
-  const protosChart = ref<DeviceProtoItem[] | null>(null)
+  const trafficChart = ref<TrafficChartResponse | null>(null)
+  const domainsChart = ref<DomainChartResponse | null>(null)
+  const countriesChart = ref<CountryChartResponse | null>(null)
+  const protosChart = ref<ProtoChartResponse | null>(null)
 
-  const trafficTable = ref<DeviceTrafficSummary[] | null>(null)
-  const domainsTable = ref<DeviceDomainSummary[] | null>(null)
-  const countriesTable = ref<DeviceCountrySummary[] | null>(null)
-  const protosTable = ref<DeviceProtoSummary[] | null>(null)
-
-  // Selection
-  const selectedMac = ref<string | null>(null)
-  const devices = computed(() => {
-    const map = new Map<string, { mac: string; label: string; ip: string; hostname: string }>()
-    for (const item of trafficChart.value) map.set(item.device.mac, item.device)
-    return Array.from(map.values()).sort((a, b) => (a.label || a.mac).localeCompare(b.label || b.mac))
-  })
-
-  watch(
-    devices,
-    d => {
-      if (selectedMac.value == null && d.length) selectedMac.value = d[0]?.mac ?? null
-      if (selectedMac.value != null && !d.some(x => x.mac === selectedMac.value)) selectedMac.value = d[0]?.mac ?? null
-    },
-    { immediate: true }
-  )
+  const trafficTable = ref<TrafficTableResponse | null>(null)
+  const domainsTable = ref<DomainTableResponse | null>(null)
+  const countriesTable = ref<CountryTableResponse | null>(null)
+  const protosTable = ref<ProtoTableResponse | null>(null)
 
   async function loadCharts() {
     if (!auth.isAuthenticated) {
@@ -288,10 +271,6 @@ export function useDashboard() {
     domainsTable,
     countriesTable,
     protosTable,
-
-    // selection
-    selectedMac,
-    devices,
 
     // state
     loadingCharts,

@@ -12,8 +12,12 @@ import (
 
 func (h *Handler) GetTablesTrafficHandler(c echo.Context) error {
 	req := c.Get("validatedQuery").(*schemas.ChartDataRangeRequest)
+	deviceIDs, err := parseDeviceIDs(req.DeviceIDs)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, echokitSchemas.DefaultBadRequestResponse)
+	}
 
-	data, err := aggregators.GetTrafficTableData(h.DB, aggregators.TimeRange{Start: req.From, End: req.To}, req.DeviceID)
+	data, err := aggregators.GetTrafficTableData(h.DB, aggregators.TimeRange{Start: req.From, End: req.To}, deviceIDs)
 	if err != nil {
 		log.Printf("GetTablesTrafficHandler error: %v", err)
 		return c.JSON(http.StatusInternalServerError, echokitSchemas.DefaultInternalErrorResponse)
@@ -24,8 +28,12 @@ func (h *Handler) GetTablesTrafficHandler(c echo.Context) error {
 
 func (h *Handler) GetTablesDomainsHandler(c echo.Context) error {
 	req := c.Get("validatedQuery").(*schemas.ChartDataRangeRequest)
+	deviceIDs, err := parseDeviceIDs(req.DeviceIDs)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, echokitSchemas.DefaultBadRequestResponse)
+	}
 
-	data, err := aggregators.GetDomainTableData(h.DB, aggregators.TimeRange{Start: req.From, End: req.To}, req.DeviceID)
+	data, err := aggregators.GetDomainTableData(h.DB, aggregators.TimeRange{Start: req.From, End: req.To}, deviceIDs)
 	if err != nil {
 		log.Printf("GetTablesDomainsHandler error: %v", err)
 		return c.JSON(http.StatusInternalServerError, echokitSchemas.DefaultInternalErrorResponse)
@@ -36,8 +44,12 @@ func (h *Handler) GetTablesDomainsHandler(c echo.Context) error {
 
 func (h *Handler) GetTablesCountriesHandler(c echo.Context) error {
 	req := c.Get("validatedQuery").(*schemas.ChartDataRangeRequest)
+	deviceIDs, err := parseDeviceIDs(req.DeviceIDs)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, echokitSchemas.DefaultBadRequestResponse)
+	}
 
-	data, err := aggregators.GetCountryTableData(h.DB, aggregators.TimeRange{Start: req.From, End: req.To}, req.DeviceID)
+	data, err := aggregators.GetCountryTableData(h.DB, aggregators.TimeRange{Start: req.From, End: req.To}, deviceIDs)
 	if err != nil {
 		log.Printf("GetTablesCountriesHandler error: %v", err)
 		return c.JSON(http.StatusInternalServerError, echokitSchemas.DefaultInternalErrorResponse)
@@ -48,8 +60,12 @@ func (h *Handler) GetTablesCountriesHandler(c echo.Context) error {
 
 func (h *Handler) GetTablesProtosHandler(c echo.Context) error {
 	req := c.Get("validatedQuery").(*schemas.ChartDataRangeRequest)
+	deviceIDs, err := parseDeviceIDs(req.DeviceIDs)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, echokitSchemas.DefaultBadRequestResponse)
+	}
 
-	data, err := aggregators.GetProtoTableData(h.DB, aggregators.TimeRange{Start: req.From, End: req.To}, req.DeviceID)
+	data, err := aggregators.GetProtoTableData(h.DB, aggregators.TimeRange{Start: req.From, End: req.To}, deviceIDs)
 	if err != nil {
 		log.Printf("GetTablesProtosHandler error: %v", err)
 		return c.JSON(http.StatusInternalServerError, echokitSchemas.DefaultInternalErrorResponse)
@@ -60,8 +76,12 @@ func (h *Handler) GetTablesProtosHandler(c echo.Context) error {
 
 func (h *Handler) GetTablesCompaniesHandler(c echo.Context) error {
 	req := c.Get("validatedQuery").(*schemas.ChartDataRangeRequest)
+	deviceIDs, err := parseDeviceIDs(req.DeviceIDs)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, echokitSchemas.DefaultBadRequestResponse)
+	}
 
-	data, err := aggregators.GetCompanyTableData(h.DB, aggregators.TimeRange{Start: req.From, End: req.To}, req.DeviceID)
+	data, err := aggregators.GetCompanyTableData(h.DB, aggregators.TimeRange{Start: req.From, End: req.To}, deviceIDs)
 	if err != nil {
 		log.Printf("GetTablesCompaniesHandler error: %v", err)
 		return c.JSON(http.StatusInternalServerError, echokitSchemas.DefaultInternalErrorResponse)

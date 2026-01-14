@@ -1,12 +1,12 @@
 import { computed, type Ref } from 'vue'
 
 import type {
-  DeviceCountryItem,
-  DeviceDomainItem,
-  DeviceProtoItem,
-  DeviceTrafficItem
+  CountryChartResponse,
+  DomainChartResponse,
+  ProtoChartResponse,
+  TrafficChartResponse
 } from '@/service/charts'
-import type { DeviceCountrySummary, DeviceDomainSummary, DeviceProtoSummary } from '@/service/tables'
+import type { CountryTableResponse, DomainTableResponse, ProtoTableResponse } from '@/service/tables'
 
 type TopRow = { key: string; value: number }
 export type TimeSeries = { name: string; data: [number, number][] }
@@ -157,18 +157,16 @@ function buildSeriesFromBuckets(
 }
 
 export function useDashboardDerived(params: {
-  selectedMac: Ref<string | null>
-  trafficChart: Ref<DeviceTrafficItem[]>
-  domainsChart: Ref<DeviceDomainItem[] | null>
-  countriesChart: Ref<DeviceCountryItem[] | null>
-  protosChart: Ref<DeviceProtoItem[] | null>
-  domainsTable: Ref<DeviceDomainSummary[] | null>
-  countriesTable: Ref<DeviceCountrySummary[] | null>
-  protosTable: Ref<DeviceProtoSummary[] | null>
+  trafficChart: Ref<TrafficChartResponse | null>
+  domainsChart: Ref<DomainChartResponse | null>
+  countriesChart: Ref<CountryChartResponse | null>
+  protosChart: Ref<ProtoChartResponse | null>
+  domainsTable: Ref<DomainTableResponse | null>
+  countriesTable: Ref<CountryTableResponse | null>
+  protosTable: Ref<ProtoTableResponse | null>
 }) {
   const topDomainsChart = computed<TopRow[]>(() => {
-    const mac = params.selectedMac.value
-    const buckets = params.domainsChart.value?.find(x => x.device.mac === mac)?.stats ?? []
+    const buckets = params.domainsChart.value?.stats ?? []
     const agg = new Map<string, number>()
     for (const b of buckets) {
       for (const [domain, count] of Object.entries((b as any).domains ?? {})) {
@@ -182,8 +180,7 @@ export function useDashboardDerived(params: {
   })
 
   const topCountriesChart = computed<TopRow[]>(() => {
-    const mac = params.selectedMac.value
-    const buckets = params.countriesChart.value?.find(x => x.device.mac === mac)?.stats ?? []
+    const buckets = params.countriesChart.value?.stats ?? []
     const agg = new Map<string, number>()
     for (const b of buckets) {
       const countries = (b as any).countries
@@ -202,8 +199,7 @@ export function useDashboardDerived(params: {
   })
 
   const topProtosChart = computed<TopRow[]>(() => {
-    const mac = params.selectedMac.value
-    const buckets = params.protosChart.value?.find(x => x.device.mac === mac)?.stats ?? []
+    const buckets = params.protosChart.value?.stats ?? []
     const agg = new Map<string, number>()
     for (const b of buckets) {
       const protos = (b as any).protos
@@ -222,8 +218,7 @@ export function useDashboardDerived(params: {
   })
 
   const domainsTimelineSeries = computed<TimeSeries[]>(() => {
-    const mac = params.selectedMac.value
-    const buckets = params.domainsChart.value?.find(x => x.device.mac === mac)?.stats ?? []
+    const buckets = params.domainsChart.value?.stats ?? []
     const sorted = [...buckets].sort((a, b) => a.bucket - b.bucket)
     const latest = sorted[sorted.length - 1]
     const prefer = latest
@@ -241,8 +236,7 @@ export function useDashboardDerived(params: {
   })
 
   const countriesTimelineSeries = computed<TimeSeries[]>(() => {
-    const mac = params.selectedMac.value
-    const buckets = params.countriesChart.value?.find(x => x.device.mac === mac)?.stats ?? []
+    const buckets = params.countriesChart.value?.stats ?? []
     const sorted = [...buckets].sort((a, b) => a.bucket - b.bucket)
     const latest = sorted[sorted.length - 1] as any
     const prefer =
@@ -274,8 +268,7 @@ export function useDashboardDerived(params: {
   })
 
   const protosTimelineSeries = computed<TimeSeries[]>(() => {
-    const mac = params.selectedMac.value
-    const buckets = params.protosChart.value?.find(x => x.device.mac === mac)?.stats ?? []
+    const buckets = params.protosChart.value?.stats ?? []
     const sorted = [...buckets].sort((a, b) => a.bucket - b.bucket)
     const latest = sorted[sorted.length - 1] as any
     const prefer =
@@ -307,8 +300,7 @@ export function useDashboardDerived(params: {
   })
 
   const companiesTimelineSeries = computed<TimeSeries[]>(() => {
-    const mac = params.selectedMac.value
-    const buckets = params.countriesChart.value?.find(x => x.device.mac === mac)?.stats ?? []
+    const buckets = params.countriesChart.value?.stats ?? []
     const sorted = [...buckets].sort((a, b) => a.bucket - b.bucket)
     const latest = sorted[sorted.length - 1] as any
     const prefer =
@@ -340,9 +332,7 @@ export function useDashboardDerived(params: {
   })
 
   const trafficSeries = computed<TimeSeries[]>(() => {
-    const mac = params.selectedMac.value
-    if (mac === null || mac === undefined) return []
-    const item = params.trafficChart.value.find(x => x.device.mac === mac)
+    const item = params.trafficChart.value
     if (!item) return []
 
     const up: Array<[number, number]> = []
@@ -360,21 +350,15 @@ export function useDashboardDerived(params: {
   })
 
   const domainsRowsTable = computed(() => {
-    const mac = params.selectedMac.value
-    const stats = params.domainsTable.value?.find(x => x.device.mac === mac)?.stats
-    return topFromTable(stats, 30)
+    return topFromTable(params.domainsTable.value?.stats, 30)
   })
 
   const countriesRowsTable = computed(() => {
-    const mac = params.selectedMac.value
-    const stats = params.countriesTable.value?.find(x => x.device.mac === mac)?.stats
-    return topFromTable(stats, 30)
+    return topFromTable(params.countriesTable.value?.stats, 30)
   })
 
   const protosRowsTable = computed(() => {
-    const mac = params.selectedMac.value
-    const stats = params.protosTable.value?.find(x => x.device.mac === mac)?.stats
-    return topFromTable(stats, 30)
+    return topFromTable(params.protosTable.value?.stats, 30)
   })
 
   return {

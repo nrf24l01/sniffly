@@ -8,7 +8,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func loadFromPostgres(db *gorm.DB, times_to_load []time.Time, deviceID *string) ([]analyzerModels.DeviceTraffic5s, error) {
+func loadFromPostgres(db *gorm.DB, times_to_load []time.Time, deviceIDs []uuid.UUID) ([]analyzerModels.DeviceTraffic5s, error) {
 	results := make([]analyzerModels.DeviceTraffic5s, 0)
 
 	batchSize := 100
@@ -23,18 +23,12 @@ func loadFromPostgres(db *gorm.DB, times_to_load []time.Time, deviceID *string) 
 		dayEnd := batch[len(batch)-1].Truncate(24 * time.Hour).Add(24 * time.Hour)
 
 		batchResults := make([]analyzerModels.DeviceTraffic5s, 0)
-		if deviceID != nil {
-			if uid, err := uuid.Parse(*deviceID); err == nil {
-				if err := db.Where("device_id = ? AND bucket >= ? AND bucket < ?", uid, dayStart, dayEnd).Find(&batchResults).Error; err != nil {
-					return nil, err
-				}
-			} else {
-				continue
-			}
-		} else {
-			if err := db.Where("bucket >= ? AND bucket < ?", dayStart, dayEnd).Find(&batchResults).Error; err != nil {
-				return nil, err
-			}
+		q := db.Where("bucket >= ? AND bucket < ?", dayStart, dayEnd)
+		if len(deviceIDs) > 0 {
+			q = q.Where("device_id IN ?", deviceIDs)
+		}
+		if err := q.Find(&batchResults).Error; err != nil {
+			return nil, err
 		}
 
 		results = append(results, batchResults...)
@@ -75,7 +69,7 @@ func loadCacheVersionsFromPostgres(db *gorm.DB, time_range TimeRange) (map[time.
 	return cacheVersions, nil
 }
 
-func loadDomainsFromPostgres(db *gorm.DB, times_to_load []time.Time, deviceID *string) ([]analyzerModels.DeviceDomain5s, error) {
+func loadDomainsFromPostgres(db *gorm.DB, times_to_load []time.Time, deviceIDs []uuid.UUID) ([]analyzerModels.DeviceDomain5s, error) {
 	results := make([]analyzerModels.DeviceDomain5s, 0)
 
 	batchSize := 100
@@ -90,18 +84,12 @@ func loadDomainsFromPostgres(db *gorm.DB, times_to_load []time.Time, deviceID *s
 		dayEnd := batch[len(batch)-1].Truncate(24 * time.Hour).Add(24 * time.Hour)
 
 		batchResults := make([]analyzerModels.DeviceDomain5s, 0)
-		if deviceID != nil {
-			if uid, err := uuid.Parse(*deviceID); err == nil {
-				if err := db.Where("device_id = ? AND bucket >= ? AND bucket < ?", uid, dayStart, dayEnd).Find(&batchResults).Error; err != nil {
-					return nil, err
-				}
-			} else {
-				continue
-			}
-		} else {
-			if err := db.Where("bucket >= ? AND bucket < ?", dayStart, dayEnd).Find(&batchResults).Error; err != nil {
-				return nil, err
-			}
+		q := db.Where("bucket >= ? AND bucket < ?", dayStart, dayEnd)
+		if len(deviceIDs) > 0 {
+			q = q.Where("device_id IN ?", deviceIDs)
+		}
+		if err := q.Find(&batchResults).Error; err != nil {
+			return nil, err
 		}
 
 		results = append(results, batchResults...)
@@ -110,7 +98,7 @@ func loadDomainsFromPostgres(db *gorm.DB, times_to_load []time.Time, deviceID *s
 	return results, nil
 }
 
-func loadCountriesFromPostgres(db *gorm.DB, times_to_load []time.Time, deviceID *string) ([]analyzerModels.DeviceCountry5s, error) {
+func loadCountriesFromPostgres(db *gorm.DB, times_to_load []time.Time, deviceIDs []uuid.UUID) ([]analyzerModels.DeviceCountry5s, error) {
 	results := make([]analyzerModels.DeviceCountry5s, 0)
 
 	batchSize := 100
@@ -125,18 +113,12 @@ func loadCountriesFromPostgres(db *gorm.DB, times_to_load []time.Time, deviceID 
 		dayEnd := batch[len(batch)-1].Truncate(24 * time.Hour).Add(24 * time.Hour)
 
 		batchResults := make([]analyzerModels.DeviceCountry5s, 0)
-		if deviceID != nil {
-			if uid, err := uuid.Parse(*deviceID); err == nil {
-				if err := db.Where("device_id = ? AND bucket >= ? AND bucket < ?", uid, dayStart, dayEnd).Find(&batchResults).Error; err != nil {
-					return nil, err
-				}
-			} else {
-				continue
-			}
-		} else {
-			if err := db.Where("bucket >= ? AND bucket < ?", dayStart, dayEnd).Find(&batchResults).Error; err != nil {
-				return nil, err
-			}
+		q := db.Where("bucket >= ? AND bucket < ?", dayStart, dayEnd)
+		if len(deviceIDs) > 0 {
+			q = q.Where("device_id IN ?", deviceIDs)
+		}
+		if err := q.Find(&batchResults).Error; err != nil {
+			return nil, err
 		}
 
 		results = append(results, batchResults...)
@@ -145,7 +127,7 @@ func loadCountriesFromPostgres(db *gorm.DB, times_to_load []time.Time, deviceID 
 	return results, nil
 }
 
-func loadProtosFromPostgres(db *gorm.DB, times_to_load []time.Time, deviceID *string) ([]analyzerModels.DeviceProto5s, error) {
+func loadProtosFromPostgres(db *gorm.DB, times_to_load []time.Time, deviceIDs []uuid.UUID) ([]analyzerModels.DeviceProto5s, error) {
 	results := make([]analyzerModels.DeviceProto5s, 0)
 
 	batchSize := 100
@@ -160,18 +142,12 @@ func loadProtosFromPostgres(db *gorm.DB, times_to_load []time.Time, deviceID *st
 		dayEnd := batch[len(batch)-1].Truncate(24 * time.Hour).Add(24 * time.Hour)
 
 		batchResults := make([]analyzerModels.DeviceProto5s, 0)
-		if deviceID != nil {
-			if uid, err := uuid.Parse(*deviceID); err == nil {
-				if err := db.Where("device_id = ? AND bucket >= ? AND bucket < ?", uid, dayStart, dayEnd).Find(&batchResults).Error; err != nil {
-					return nil, err
-				}
-			} else {
-				continue
-			}
-		} else {
-			if err := db.Where("bucket >= ? AND bucket < ?", dayStart, dayEnd).Find(&batchResults).Error; err != nil {
-				return nil, err
-			}
+		q := db.Where("bucket >= ? AND bucket < ?", dayStart, dayEnd)
+		if len(deviceIDs) > 0 {
+			q = q.Where("device_id IN ?", deviceIDs)
+		}
+		if err := q.Find(&batchResults).Error; err != nil {
+			return nil, err
 		}
 
 		results = append(results, batchResults...)

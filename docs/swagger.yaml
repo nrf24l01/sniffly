@@ -196,6 +196,87 @@ components:
           items:
             $ref: '#/components/schemas/DeviceProtoBucket'
       required: [device, stats]
+
+    TrafficChartResponse:
+      type: object
+      properties:
+        stats:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeviceTrafficBucket'
+      required: [stats]
+
+    DomainChartResponse:
+      type: object
+      properties:
+        stats:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeviceDomainBucket'
+      required: [stats]
+
+    CountryChartResponse:
+      type: object
+      properties:
+        stats:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeviceCountryBucket'
+      required: [stats]
+
+    ProtoChartResponse:
+      type: object
+      properties:
+        stats:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeviceProtoBucket'
+      required: [stats]
+
+    TrafficTableResponse:
+      type: object
+      properties:
+        stats:
+          type: object
+          properties:
+            up_bytes:
+              type: integer
+              format: uint64
+            down_bytes:
+              type: integer
+              format: uint64
+          required: [up_bytes, down_bytes]
+      required: [stats]
+
+    DomainTableResponse:
+      type: object
+      properties:
+        stats:
+          type: object
+          additionalProperties:
+            type: integer
+            format: uint64
+      required: [stats]
+
+    CountryTableResponse:
+      type: object
+      properties:
+        stats:
+          type: object
+          additionalProperties:
+            type: integer
+            format: uint64
+      required: [stats]
+
+    ProtoTableResponse:
+      type: object
+      properties:
+        stats:
+          type: object
+          additionalProperties:
+            type: integer
+            format: uint64
+      required: [stats]
     DeviceTrafficSummary:
       type: object
       properties:
@@ -409,18 +490,20 @@ paths:
           in: query
           required: false
           schema:
-            type: string
-            format: uuid
-          description: Optional device UUID to filter results
+            type: array
+            items:
+              type: string
+              format: uuid
+          style: form
+          explode: true
+          description: Optional device UUIDs (repeat device_id) to filter results
       responses:
         '200':
-          description: Массив статистики по устройствам
+          description: Агрегированная статистика по выбранным устройствам
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/DeviceTrafficItem'
+                $ref: '#/components/schemas/TrafficChartResponse'
         '400':
           description: Неверные параметры
           content:
@@ -454,18 +537,20 @@ paths:
           in: query
           required: false
           schema:
-            type: string
-            format: uuid
-          description: Optional device UUID to filter results
+            type: array
+            items:
+              type: string
+              format: uuid
+          style: form
+          explode: true
+          description: Optional device UUIDs (repeat device_id) to filter results
       responses:
         '200':
-          description: Запросы по доменам по бакетам
+          description: Агрегированные запросы по доменам по бакетам
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/DeviceDomainItem'
+                $ref: '#/components/schemas/DomainChartResponse'
         '401':
           description: Unauthorized
           content:
@@ -493,18 +578,20 @@ paths:
           in: query
           required: false
           schema:
-            type: string
-            format: uuid
-          description: Optional device UUID to filter results
+            type: array
+            items:
+              type: string
+              format: uuid
+          style: form
+          explode: true
+          description: Optional device UUIDs (repeat device_id) to filter results
       responses:
         '200':
-          description: Запросы по странам по бакетам
+          description: Агрегированные запросы по странам по бакетам
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/DeviceCountryItem'
+                $ref: '#/components/schemas/CountryChartResponse'
   /charts/protos:
     get:
       tags: [Charts]
@@ -526,18 +613,20 @@ paths:
           in: query
           required: false
           schema:
-            type: string
-            format: uuid
-          description: Optional device UUID to filter results
+            type: array
+            items:
+              type: string
+              format: uuid
+          style: form
+          explode: true
+          description: Optional device UUIDs (repeat device_id) to filter results
       responses:
         '200':
           description: Запросы по протоколам по бакетам
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/DeviceProtoItem'
+                $ref: '#/components/schemas/ProtoChartResponse'
   /tables/traffic:
     get:
       tags: [Tables]
@@ -559,18 +648,20 @@ paths:
           in: query
           required: false
           schema:
-            type: string
-            format: uuid
-          description: Optional device UUID to filter results
+            type: array
+            items:
+              type: string
+              format: uuid
+          style: form
+          explode: true
+          description: Optional device UUIDs (repeat device_id) to filter results
       responses:
         '200':
           description: Сводный трафик
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/DeviceTrafficSummary'
+                $ref: '#/components/schemas/TrafficTableResponse'
   /tables/domains:
     get:
       tags: [Tables]
@@ -592,18 +683,20 @@ paths:
           in: query
           required: false
           schema:
-            type: string
-            format: uuid
-          description: Optional device UUID to filter results
+            type: array
+            items:
+              type: string
+              format: uuid
+          style: form
+          explode: true
+          description: Optional device UUIDs (repeat device_id) to filter results
       responses:
         '200':
           description: Сводные запросы по доменам
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/DeviceDomainSummary'
+                $ref: '#/components/schemas/DomainTableResponse'
   /tables/countries:
     get:
       tags: [Tables]
@@ -625,18 +718,20 @@ paths:
           in: query
           required: false
           schema:
-            type: string
-            format: uuid
-          description: Optional device UUID to filter results
+            type: array
+            items:
+              type: string
+              format: uuid
+          style: form
+          explode: true
+          description: Optional device UUIDs (repeat device_id) to filter results
       responses:
         '200':
           description: Сводные запросы по странам
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/DeviceCountrySummary'
+                $ref: '#/components/schemas/CountryTableResponse'
   /tables/protos:
     get:
       tags: [Tables]
@@ -658,18 +753,20 @@ paths:
           in: query
           required: false
           schema:
-            type: string
-            format: uuid
-          description: Optional device UUID to filter results
+            type: array
+            items:
+              type: string
+              format: uuid
+          style: form
+          explode: true
+          description: Optional device UUIDs (repeat device_id) to filter results
       responses:
         '200':
           description: Сводные запросы по протоколам
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/DeviceProtoSummary'
+                $ref: '#/components/schemas/ProtoTableResponse'
   /capture:
     post:
       tags: [Captures]

@@ -58,3 +58,44 @@ type CountryChartData struct {
 	Device Device        `json:"device"`
 	Stats  []CountryStat `json:"stats"`
 }
+
+// Aggregated (device-less) API responses
+
+type TrafficChartResponse struct {
+	Stats []Traffic `json:"stats"`
+}
+
+type DomainChartResponse struct {
+	Stats []DomainStat `json:"stats"`
+}
+
+type ProtoChartResponse struct {
+	Stats []ProtoStat `json:"stats"`
+}
+
+type CountryChartResponse struct {
+	Stats []CountryStat `json:"stats"`
+}
+
+type TrafficTableResponse struct {
+	Stats struct {
+		UpBytes   uint64 `json:"up_bytes"`
+		DownBytes uint64 `json:"down_bytes"`
+	} `json:"stats"`
+}
+
+type DomainTableResponse struct {
+	Stats map[string]uint64 `json:"stats"`
+}
+
+type CountryTableResponse struct {
+	Stats map[string]uint64 `json:"stats"`
+}
+
+type ProtoTableResponse struct {
+	Stats map[string]uint64 `json:"stats"`
+}
+
+type CompanyTableResponse struct {
+	Stats map[string]uint64 `json:"stats"`
+}

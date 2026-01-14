@@ -31,8 +31,6 @@ const {
   domainsTable,
   countriesTable,
   protosTable,
-  selectedMac,
-  devices,
   loadingCharts,
   loadingTables,
   error,
@@ -44,7 +42,6 @@ const {
 
 const presets = ref<RangePreset[]>(['1h', '6h', '24h', '7d'])
 const customOpen = ref(false)
-const selectedDevice = computed(() => devices.value.find(d => d.mac === selectedMac.value) ?? null)
 
 function toDatetimeLocal(ms: number) {
   const d = new Date(ms)
@@ -105,7 +102,6 @@ const {
   countriesRowsTable,
   protosRowsTable
 } = useDashboardDerived({
-  selectedMac,
   trafficChart,
   domainsChart,
   countriesChart,
@@ -114,11 +110,6 @@ const {
   countriesTable,
   protosTable
 })
-
-// Stats cards
-const deviceCount = computed(() => devices.value.length)
-const totalUp = computed(() => (trafficTable.value ?? []).reduce((acc, row) => acc + (row.stats?.up_bytes ?? 0), 0))
-const totalDown = computed(() => (trafficTable.value ?? []).reduce((acc, row) => acc + (row.stats?.down_bytes ?? 0), 0))
 
 const rangeLabel = computed(() => `${formatDateTime(range.value.fromMs)} → ${formatDateTime(range.value.toMs)}`)
 const refreshing = computed(() => loadingCharts.value)
@@ -251,18 +242,6 @@ function onSwitch(widget: 'traffic' | 'domains' | 'countries' | 'protos', m: Wid
           :hint="selectedDevice ? `${selectedDevice.ip} • ${selectedDevice.hostname}` : 'Pick a device to inspect'"
         />
       </section> -->
-
-      <section class="mt-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div class="text-sm font-medium text-slate-700 dark:text-slate-200">Device</div>
-        <div class="w-full lg:max-w-xl">
-          <select
-            v-model="selectedMac"
-            class="w-full rounded-xl border border-slate-200/70 bg-white/70 px-3 py-2 text-sm text-slate-900 shadow-sm backdrop-blur outline-none transition focus:border-green-500 focus:ring-2 focus:ring-green-500/20 dark:border-slate-800 dark:bg-slate-900/40 dark:text-slate-50"
-          >
-            <option v-for="d in devices" :key="d.mac" :value="d.mac">{{ d.label || d.mac }} — {{ d.ip }}</option>
-          </select>
-        </div>
-      </section>
 
       <section class="mt-6 grid gap-4 md:grid-cols-2">
         <div class="rounded-2xl border border-slate-200/70 bg-white/70 p-3 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-900/50">
@@ -451,21 +430,17 @@ function onSwitch(widget: 'traffic' | 'domains' | 'countries' | 'protos', m: Wid
             <table v-else class="min-w-full text-left text-sm">
               <thead class="text-xs uppercase text-slate-500 dark:text-slate-300">
                 <tr>
-                  <th class="py-2 pr-4">Device</th>
-                  <th class="py-2 pr-4">IP</th>
                   <th class="py-2 pr-4">Up</th>
                   <th class="py-2 pr-4">Down</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-200/70 dark:divide-slate-800">
-                <tr v-for="row in (trafficTable ?? [])" :key="row.device.mac" class="hover:bg-slate-50/80 dark:hover:bg-slate-800/30">
-                  <td class="py-3 pr-4 font-medium text-slate-900 dark:text-slate-50">{{ row.device.label || row.device.mac }}</td>
-                  <td class="py-3 pr-4 text-slate-700 dark:text-slate-200">{{ row.device.ip }}</td>
-                  <td class="py-3 pr-4 text-slate-700 dark:text-slate-200">{{ formatBytes(row.stats.up_bytes) }}</td>
-                  <td class="py-3 pr-4 text-slate-700 dark:text-slate-200">{{ formatBytes(row.stats.down_bytes) }}</td>
+                <tr v-if="trafficTable" class="hover:bg-slate-50/80 dark:hover:bg-slate-800/30">
+                  <td class="py-3 pr-4 text-slate-700 dark:text-slate-200">{{ formatBytes(trafficTable.stats.up_bytes) }}</td>
+                  <td class="py-3 pr-4 text-slate-700 dark:text-slate-200">{{ formatBytes(trafficTable.stats.down_bytes) }}</td>
                 </tr>
-                <tr v-if="!loadingTables.traffic && (!trafficTable || trafficTable.length === 0)">
-                  <td colspan="4" class="py-6 text-center text-sm text-slate-500 dark:text-slate-300">No data</td>
+                <tr v-if="!loadingTables.traffic && !trafficTable">
+                  <td colspan="2" class="py-6 text-center text-sm text-slate-500 dark:text-slate-300">No data</td>
                 </tr>
               </tbody>
             </table>
