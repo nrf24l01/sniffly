@@ -72,6 +72,7 @@ func main() {
 	}
 
 	for {
+		log.Printf("Starting to load batch of records")
 		batch, err := batcher.LoadAllRecords()
 		log.Printf("Loaded batch with %d records", len(batch.Packets))
 		if err != nil {

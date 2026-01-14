@@ -60,6 +60,9 @@ func (b *Batcher) LoadAllRecords() (Batch, error) {
 
 	timeout := time.After(200 * time.Millisecond)
 	for {
+		if len(batch.Packets) >= 10000 {
+			return batch, nil
+		}
 		select {
 		case msg, ok := <-msgs:
 			if !ok {
