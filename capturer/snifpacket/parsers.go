@@ -57,9 +57,7 @@ func parseHTTP(payload []byte, src, dst net.IP, size int) *SnifPacketDetailsHTTP
 		}
 	}
 
-	if hdrEnd := indexOf(payload, []byte("\r\n\r\n")); hdrEnd >= 0 && hdrEnd+4 < len(payload) {
-		body = string(payload[hdrEnd+4:])
-	}
+	body = ""
 
 	sni = ""
 

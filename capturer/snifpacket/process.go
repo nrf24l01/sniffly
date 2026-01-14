@@ -59,13 +59,9 @@ func ProcessPacket(packet gopacket.Packet) (*SnifPacket, error) {
 			}
 		}
 		snif_packet.Details.Type = SnifPacketTypeUDP
-		snif_packet.Details.UDP = &SnifPacketDetailsUDP{
-			Data: u.Payload,
-		}
 		return snif_packet, nil
 	}
 
-	// TCP: HTTP / HTTPS / other
 	if tcp := packet.Layer(layers.LayerTypeTCP); tcp != nil {
 		t := tcp.(*layers.TCP)
 		payload := t.Payload
@@ -98,9 +94,6 @@ func ProcessPacket(packet gopacket.Packet) (*SnifPacket, error) {
 
 		// On plain TCP
 		snif_packet.Details.Type = SnifPacketTypeTCP
-		snif_packet.Details.TCP = &SnifPacketDetailsTCP{
-			Data: payload,
-		}
 		return snif_packet, nil
 	}
 	return nil, fmt.Errorf("no TCP/UDP layer found")
