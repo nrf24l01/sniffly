@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/bwmarrin/snowflake"
@@ -15,6 +16,14 @@ import (
 	"github.com/nrf24l01/sniffly/analyzer/core"
 	"github.com/nrf24l01/sniffly/analyzer/postgres"
 )
+
+func isAMQPClosed(err error) bool {
+	if err == nil {
+		return false
+	}
+	s := err.Error()
+	return strings.Contains(s, "channel/connection is not open") || strings.Contains(s, "connection is closed") || strings.Contains(s, "channel is closed")
+}
 
 func main() {
 	if os.Getenv("PRODUCTION_ENV") != "true" {
@@ -76,12 +85,50 @@ func main() {
 		batch, err := batcher.LoadAllRecords()
 		log.Printf("Loaded batch with %d records", len(batch.Packets))
 		if err != nil {
-			log.Fatalf("failed to record batch: %v", err)
+			if isAMQPClosed(err) {
+				log.Printf("RabbitMQ channel closed: %v — reconnecting...", err)
+				for {
+					rmq, err = rabbitMQ.RegisterRabbitMQ(cfg.RabbitMQConfig)
+					if err == nil {
+						break
+					}
+					log.Printf("reconnect failed: %v; retrying in 5s", err)
+					time.Sleep(5 * time.Second)
+				}
+				batcher.RMQ = rmq
+				if err := rmq.Channel.Qos(1, 0, false); err != nil {
+					log.Printf("failed to set QoS on RabbitMQ channel: %v", err)
+				}
+				continue
+			}
+			log.Printf("failed to record batch: %v", err)
+			time.Sleep(2 * time.Second)
+			continue
 		}
+
 		err = batcher.Process(ctx, batch)
 		if err != nil {
-			log.Fatalf("failed to process batch: %v", err)
+			if isAMQPClosed(err) {
+				log.Printf("RabbitMQ channel closed during processing: %v — reconnecting...", err)
+				for {
+					rmq, err = rabbitMQ.RegisterRabbitMQ(cfg.RabbitMQConfig)
+					if err == nil {
+						break
+					}
+					log.Printf("reconnect failed: %v; retrying in 5s", err)
+					time.Sleep(5 * time.Second)
+				}
+				batcher.RMQ = rmq
+				if err := rmq.Channel.Qos(1, 0, false); err != nil {
+					log.Printf("failed to set QoS on RabbitMQ channel: %v", err)
+				}
+				continue
+			}
+			log.Printf("failed to process batch: %v", err)
+			time.Sleep(2 * time.Second)
+			continue
 		}
-		time.Sleep(time.Second*10)
+
+		time.Sleep(time.Second * 10)
 	}
 }

@@ -46,8 +46,7 @@ func (b *Batcher) LoadAllRecords() (Batch, error) {
 	consumerTag := fmt.Sprintf("batcher-loadall-%d", time.Now().UnixNano())
 	msgs, err := b.RMQ.Channel.Consume(b.CFG.AppConfig.CapturePacketsTopic, consumerTag, false, false, false, false, nil)
 	if err != nil {
-		log.Fatalf("%v", err)
-		return Batch{}, err
+		return Batch{}, fmt.Errorf("failed to start consume: %w", err)
 	}
 
 	defer func() {
