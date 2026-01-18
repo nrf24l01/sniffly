@@ -18,8 +18,8 @@ func indexOf(haystack, needle []byte) int {
 	return -1
 }
 
-func GetLocalAddrs(iface string) (map[string]struct{}, string, error) {
-	ips := make(map[string]struct{})
+func GetLocalAddrs(iface string) ([]*net.IPNet, string, error) {
+	var nets []*net.IPNet
 
 	i, err := net.InterfaceByName(iface)
 	if err != nil {
@@ -35,11 +35,16 @@ func GetLocalAddrs(iface string) (map[string]struct{}, string, error) {
 		switch v := a.(type) {
 		case *net.IPNet:
 			if v.IP != nil {
-				ips[v.IP.String()] = struct{}{}
+				nets = append(nets, v)
 			}
 		case *net.IPAddr:
 			if v.IP != nil {
-				ips[v.IP.String()] = struct{}{}
+				bits := 32
+				if v.IP.To4() == nil {
+					bits = 128
+				}
+				mask := net.CIDRMask(bits, bits)
+				nets = append(nets, &net.IPNet{IP: v.IP, Mask: mask})
 			}
 		}
 	}
@@ -49,5 +54,5 @@ func GetLocalAddrs(iface string) (map[string]struct{}, string, error) {
 		mac = i.HardwareAddr.String()
 	}
 
-	return ips, mac, nil
+	return nets, mac, nil
 }

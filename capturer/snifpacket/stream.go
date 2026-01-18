@@ -2,6 +2,7 @@ package snifpacket
 
 import (
 	"log"
+	"net"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -10,58 +11,73 @@ import (
 )
 
 func ReceivePackets(packetSource *gopacket.PacketSource, iface string, packets chan *SnifPacket, wg *sync.WaitGroup) {
-    defer wg.Done()
-    defer close(packets)
+	defer wg.Done()
+	defer close(packets)
 
-    localIPs, localMAC, err := GetLocalAddrs(iface)
-    filterEnabled := true
-    if err != nil {
-        log.Printf("failed to get local addresses for interface %s: %v; outgoing filtering disabled", iface, err)
-        filterEnabled = false
-    }
+	localNets, _, err := GetLocalAddrs(iface)
+	filterEnabled := true
+	if err != nil {
+		log.Printf("failed to get local addresses for interface %s: %v; outgoing filtering disabled", iface, err)
+		filterEnabled = false
+	}
+	isInLocal := func(ipStr string) bool {
+		ip := net.ParseIP(ipStr)
+		if ip == nil {
+			return false
+		}
+		for _, n := range localNets {
+			if n.Contains(ip) {
+				return true
+			}
+		}
+		return false
+	}
 
-    // Diagnostics & counters
-    var received uint64
-    var dropped uint64
-    pktCh := packetSource.Packets()
-    ticker := time.NewTicker(30 * time.Second)
-    defer ticker.Stop()
+	// Diagnostics & counters
+	var received uint64
+	var dropped uint64
+	pktCh := packetSource.Packets()
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
 
 LOOP:
-    for {
-        select {
-        case packet, ok := <-pktCh:
-            if !ok {
-                // packet source closed
-                break LOOP
-            }
+	for {
+		select {
+		case packet, ok := <-pktCh:
+			if !ok {
+				// packet source closed
+				break LOOP
+			}
 
-            sp, err := ProcessPacket(packet)
-            if err != nil {
-                continue
-            }
+			sp, err := ProcessPacket(packet)
+			if err != nil {
+				continue
+			}
 
-            if filterEnabled {
-                if _, ok := localIPs[sp.SrcIP]; !ok && sp.SrcMAC != localMAC {
-                    continue
-                }
-            }
+			if filterEnabled {
+				srcIn := isInLocal(sp.SrcIP)
+				dstIn := isInLocal(sp.DstIP)
+				// Keep only packets going out of local network
+				if !srcIn || dstIn {
+					continue
+				}
+			}
 
-            select {
-            case packets <- sp:
-                atomic.AddUint64(&received, 1)
-            default:
-                // channel full, drop packet
-                atomic.AddUint64(&dropped, 1)
-                if atomic.LoadUint64(&dropped)%1000 == 0 {
-                    log.Printf("packets channel full, dropped=%d, received=%d, len(packets)=%d", atomic.LoadUint64(&dropped), atomic.LoadUint64(&received), len(packets))
-                }
-            }
+			select {
+			case packets <- sp:
+				atomic.AddUint64(&received, 1)
+			default:
+				// channel full, drop packet
+				atomic.AddUint64(&dropped, 1)
+				if atomic.LoadUint64(&dropped)%1000 == 0 {
+					log.Printf("packets channel full, dropped=%d, received=%d, len(packets)=%d", atomic.LoadUint64(&dropped), atomic.LoadUint64(&received), len(packets))
+				}
+			}
 
-        case <-ticker.C:
-            // periodic status
-            log.Printf("capture status: received=%d dropped=%d queue_len=%d", atomic.LoadUint64(&received), atomic.LoadUint64(&dropped), len(packets))
-        }
-    }
-    log.Printf("Packet receiving goroutine for interface %s exiting", iface)
+		case <-ticker.C:
+			// periodic status
+			log.Printf("capture status: received=%d dropped=%d queue_len=%d", atomic.LoadUint64(&received), atomic.LoadUint64(&dropped), len(packets))
+		}
+	}
+	log.Printf("Packet receiving goroutine for interface %s exiting", iface)
 }
