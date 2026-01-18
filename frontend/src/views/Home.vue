@@ -418,7 +418,7 @@ async function saveEditDevice() {
             height="320px"
           />
 
-          <div v-else class="mt-2 overflow-auto">
+          <div v-else class="mt-2 h-80 overflow-auto">
             <div v-if="loadingTables.domains" class="h-36 w-full animate-pulse rounded-xl bg-slate-200/60 dark:bg-slate-700/40" />
             <table v-else class="min-w-full text-left text-sm">
               <thead class="text-xs uppercase text-slate-500 dark:text-slate-300">
@@ -462,7 +462,7 @@ async function saveEditDevice() {
             height="320px"
           />
 
-          <div v-else class="mt-2 overflow-auto">
+          <div v-else class="mt-2 h-80 overflow-auto">
             <div v-if="loadingTables.countries" class="h-36 w-full animate-pulse rounded-xl bg-slate-200/60 dark:bg-slate-700/40" />
             <table v-else class="min-w-full text-left text-sm">
               <thead class="text-xs uppercase text-slate-500 dark:text-slate-300">
@@ -507,7 +507,7 @@ async function saveEditDevice() {
             height="320px"
           />
 
-          <div v-else class="mt-2 overflow-auto">
+          <div v-else class="mt-2 h-80 overflow-auto">
             <div v-if="loadingTables.protos" class="h-36 w-full animate-pulse rounded-xl bg-slate-200/60 dark:bg-slate-700/40" />
             <table v-else class="min-w-full text-left text-sm">
               <thead class="text-xs uppercase text-slate-500 dark:text-slate-300">
@@ -576,7 +576,7 @@ async function saveEditDevice() {
             height="320px"
           />
 
-          <div v-else class="mt-2 overflow-auto">
+          <div v-else class="mt-2 h-80 overflow-auto">
             <div v-if="loadingTables.traffic" class="h-36 w-full animate-pulse rounded-xl bg-slate-200/60 dark:bg-slate-700/40" />
             <table v-else class="min-w-full text-left text-sm">
               <thead class="text-xs uppercase text-slate-500 dark:text-slate-300">
