@@ -6,7 +6,7 @@ import type {
   ProtoChartResponse,
   TrafficChartResponse
 } from '@/service/charts'
-import type { CountryTableResponse, DomainTableResponse, ProtoTableResponse } from '@/service/tables'
+import type { CompanyTableResponse, CountryTableResponse, DomainTableResponse, ProtoTableResponse } from '@/service/tables'
 
 type TopRow = { key: string; value: number }
 export type TimeSeries = { name: string; data: [number, number][] }
@@ -164,6 +164,7 @@ export function useDashboardDerived(params: {
   domainsTable: Ref<DomainTableResponse | null>
   countriesTable: Ref<CountryTableResponse | null>
   protosTable: Ref<ProtoTableResponse | null>
+  companiesTable: Ref<CompanyTableResponse | null>
 }) {
   const topDomainsChart = computed<TopRow[]>(() => {
     const buckets = params.domainsChart.value?.stats ?? []
@@ -361,6 +362,10 @@ export function useDashboardDerived(params: {
     return topFromTable(params.protosTable.value?.stats, 30)
   })
 
+  const companiesRowsTable = computed(() => {
+    return topFromTable(params.companiesTable.value?.stats, 30)
+  })
+
   return {
     topDomainsChart,
     topCountriesChart,
@@ -372,6 +377,7 @@ export function useDashboardDerived(params: {
     companiesTimelineSeries,
     domainsRowsTable,
     countriesRowsTable,
-    protosRowsTable
+    protosRowsTable,
+    companiesRowsTable
   }
 }

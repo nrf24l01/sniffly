@@ -23,7 +23,7 @@ function set(v: 'chart' | 'table') {
       :disabled="disabled"
       @click="set('chart')"
     >
-      Chart
+График
     </button>
     <button
       type="button"
@@ -32,7 +32,7 @@ function set(v: 'chart' | 'table') {
       :disabled="disabled"
       @click="set('table')"
     >
-      Table
+      Таблица
     </button>
   </div>
 </template>

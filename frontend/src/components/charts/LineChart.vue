@@ -69,7 +69,7 @@ const option = computed(() => {
     <div v-if="loading" class="h-36 w-full animate-pulse rounded-xl bg-slate-200/60 dark:bg-slate-700/40" />
 
     <div v-else-if="!series?.length || series.every(s => !s.data.length)" class="h-36 flex items-center justify-center text-sm text-slate-500 dark:text-slate-300">
-      {{ emptyText ?? 'No data for selected period' }}
+      {{ emptyText ?? 'Нет данных за выбранный период.' }}
     </div>
 
     <VChart

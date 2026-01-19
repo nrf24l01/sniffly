@@ -30,6 +30,7 @@ const {
   domainsMode,
   countriesMode,
   protosMode,
+  companiesMode,
   trafficChart,
   domainsChart,
   countriesChart,
@@ -38,6 +39,7 @@ const {
   domainsTable,
   countriesTable,
   protosTable,
+  companiesTable,
   loadingCharts,
   loadingTables,
   error,
@@ -109,7 +111,8 @@ const {
   companiesTimelineSeries,
   domainsRowsTable,
   countriesRowsTable,
-  protosRowsTable
+  protosRowsTable,
+  companiesRowsTable
 } = useDashboardDerived({
   trafficChart,
   domainsChart,
@@ -117,7 +120,8 @@ const {
   protosChart,
   domainsTable,
   countriesTable,
-  protosTable
+  protosTable,
+  companiesTable
 })
 
 const rangeLabel = computed(() => `${formatDateTime(range.value.fromMs)} → ${formatDateTime(range.value.toMs)}`)
@@ -128,8 +132,9 @@ watch(trafficMode, m => m === 'table' && ensureTable('traffic'))
 watch(domainsMode, m => m === 'table' && ensureTable('domains'))
 watch(countriesMode, m => m === 'table' && ensureTable('countries'))
 watch(protosMode, m => m === 'table' && ensureTable('protos'))
+watch(companiesMode, m => m === 'table' && ensureTable('companies'))
 
-function onSwitch(widget: 'traffic' | 'domains' | 'countries' | 'protos', m: WidgetMode) {
+function onSwitch(widget: 'traffic' | 'domains' | 'countries' | 'protos' | 'companies', m: WidgetMode) {
   if (m === 'table') return ensureTable(widget)
 }
 
@@ -204,7 +209,7 @@ async function saveEditDevice() {
     <div class="mx-auto w-full max-w-none px-4 py-6 sm:px-6 lg:px-8">
       <header class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 class="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-50">Dashboard</h1>
+          <h1 class="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-50">Статистики</h1>
           <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">{{ rangeLabel }}</p>
         </div>
 
@@ -234,7 +239,7 @@ async function saveEditDevice() {
             :disabled="refreshing"
             @click="loadCharts"
           >
-            {{ refreshing ? 'Refreshing…' : 'Refresh' }}
+            {{ refreshing ? 'Обновление…' : 'Обновить' }}
           </button>
         </div>
       </header>
@@ -318,7 +323,7 @@ async function saveEditDevice() {
 
       <section v-if="customOpen" class="mt-4 grid gap-3 md:grid-cols-2">
         <div class="rounded-2xl border border-slate-200/70 bg-white/70 p-3 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-900/50">
-          <div class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">Range (Grafana-style)</div>
+          <div class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">Диапазон временной(текстом)</div>
           <div class="mt-2 grid gap-2 sm:grid-cols-2">
             <input
               v-model="fromExpr"
@@ -332,7 +337,7 @@ async function saveEditDevice() {
             />
           </div>
           <div class="mt-2 flex items-center justify-between gap-2">
-            <div class="text-xs text-slate-500 dark:text-slate-300">Units: y, m(month), w, d, h, min, s</div>
+            <div class="text-xs text-slate-500 dark:text-slate-300">Единицы: y, m(месяц), w, d, h, min, s</div>
             <button
               class="inline-flex items-center justify-center rounded-xl border border-slate-200/70 bg-white/70 px-3 py-2 text-sm font-semibold text-slate-900 shadow-sm backdrop-blur transition hover:bg-white dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-50 dark:hover:bg-slate-900"
               :disabled="refreshing"
@@ -344,7 +349,7 @@ async function saveEditDevice() {
         </div>
 
         <div class="rounded-2xl border border-slate-200/70 bg-white/70 p-3 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-900/50">
-          <div class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">Range (Calendar)</div>
+          <div class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">Диапазон (Датами)</div>
           <div class="mt-2 grid gap-2 sm:grid-cols-2">
             <input
               v-model="fromLocal"
@@ -363,7 +368,7 @@ async function saveEditDevice() {
               :disabled="refreshing"
               @click="applyAbsoluteFromInputs"
             >
-              Apply
+              Применить
             </button>
           </div>
         </div>
@@ -383,23 +388,11 @@ async function saveEditDevice() {
         {{ error }}
       </section>
 
-      <!-- <section class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard title="Devices" :value="formatNumber(deviceCount)" hint="Devices with traffic in range" />
-        <StatCard title="Total Up" :value="formatBytes(totalUp)" hint="Shown when Traffic table is loaded" />
-        <StatCard title="Total Down" :value="formatBytes(totalDown)" hint="Shown when Traffic table is loaded" />
-        <StatCard
-          title="Selected"
-          :value="selectedDevice ? (selectedDevice.label || selectedDevice.mac) : '—'"
-          :hint="selectedDevice ? `${selectedDevice.ip} • ${selectedDevice.hostname}` : 'Pick a device to inspect'"
-        />
-      </section> -->
-
       <section class="mt-6 grid gap-4 md:grid-cols-2">
         <div class="rounded-2xl border border-slate-200/70 bg-white/70 p-3 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-900/50">
           <div class="flex items-start justify-between gap-3 px-1 pb-2">
             <div>
-              <div class="text-sm font-semibold text-slate-900 dark:text-slate-50">Domains</div>
-              <div class="text-xs text-slate-500 dark:text-slate-300">Chart: per-domain requests over time; Table: totals from /tables</div>
+              <div class="text-sm font-semibold text-slate-900 dark:text-slate-50">Sni запросов</div>
             </div>
             <ViewSwitch v-model="domainsMode" :disabled="refreshing" @update:modelValue="onSwitch('domains', $event)" />
           </div>
@@ -423,8 +416,8 @@ async function saveEditDevice() {
             <table v-else class="min-w-full text-left text-sm">
               <thead class="text-xs uppercase text-slate-500 dark:text-slate-300">
                 <tr>
-                  <th class="py-2 pr-4">Domain</th>
-                  <th class="py-2 pr-4">Requests</th>
+                  <th class="py-2 pr-4">Домен</th>
+                  <th class="py-2 pr-4">Запросы</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-200/70 dark:divide-slate-800">
@@ -433,7 +426,7 @@ async function saveEditDevice() {
                   <td class="py-3 pr-4 text-slate-700 dark:text-slate-200">{{ formatNumber(row.value) }}</td>
                 </tr>
                 <tr v-if="!loadingTables.domains && (!domainsTable || domainsRowsTable.length === 0)">
-                  <td colspan="2" class="py-6 text-center text-sm text-slate-500 dark:text-slate-300">No data</td>
+                  <td colspan="2" class="py-6 text-center text-sm text-slate-500 dark:text-slate-300">Нет данных</td>
                 </tr>
               </tbody>
             </table>
@@ -442,8 +435,7 @@ async function saveEditDevice() {
         <div class="rounded-2xl border border-slate-200/70 bg-white/70 p-3 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-900/50">
           <div class="flex items-start justify-between gap-3 px-1 pb-2">
             <div>
-              <div class="text-sm font-semibold text-slate-900 dark:text-slate-50">Countries</div>
-              <div class="text-xs text-slate-500 dark:text-slate-300">Chart: per-country requests over time; Table: totals from /tables</div>
+              <div class="text-sm font-semibold text-slate-900 dark:text-slate-50">Страны</div>
             </div>
             <ViewSwitch v-model="countriesMode" :disabled="refreshing" @update:modelValue="onSwitch('countries', $event)" />
           </div>
@@ -467,8 +459,8 @@ async function saveEditDevice() {
             <table v-else class="min-w-full text-left text-sm">
               <thead class="text-xs uppercase text-slate-500 dark:text-slate-300">
                 <tr>
-                  <th class="py-2 pr-4">Country</th>
-                  <th class="py-2 pr-4">Requests</th>
+                  <th class="py-2 pr-4">Страна</th>
+                  <th class="py-2 pr-4">Запросы</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-200/70 dark:divide-slate-800">
@@ -477,7 +469,7 @@ async function saveEditDevice() {
                   <td class="py-3 pr-4 text-slate-700 dark:text-slate-200">{{ formatNumber(row.value) }}</td>
                 </tr>
                 <tr v-if="!loadingTables.countries && (!countriesTable || countriesRowsTable.length === 0)">
-                  <td colspan="2" class="py-6 text-center text-sm text-slate-500 dark:text-slate-300">No data</td>
+                  <td colspan="2" class="py-6 text-center text-sm text-slate-500 dark:text-slate-300">Нет данных</td>
                 </tr>
               </tbody>
             </table>
@@ -487,8 +479,7 @@ async function saveEditDevice() {
         <div class="rounded-2xl border border-slate-200/70 bg-white/70 p-3 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-900/50">
           <div class="flex items-start justify-between gap-3 px-1 pb-2">
             <div>
-              <div class="text-sm font-semibold text-slate-900 dark:text-slate-50">Protocols</div>
-              <div class="text-xs text-slate-500 dark:text-slate-300">Chart: per-protocol requests over time; Table: totals from /tables</div>
+              <div class="text-sm font-semibold text-slate-900 dark:text-slate-50">Протоколы</div>
             </div>
             <ViewSwitch v-model="protosMode" :disabled="refreshing" @update:modelValue="onSwitch('protos', $event)" />
           </div>
@@ -512,8 +503,8 @@ async function saveEditDevice() {
             <table v-else class="min-w-full text-left text-sm">
               <thead class="text-xs uppercase text-slate-500 dark:text-slate-300">
                 <tr>
-                  <th class="py-2 pr-4">Proto</th>
-                  <th class="py-2 pr-4">Requests</th>
+                  <th class="py-2 pr-4">Протоколы</th>
+                  <th class="py-2 pr-4">Запросы</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-200/70 dark:divide-slate-800">
@@ -522,7 +513,7 @@ async function saveEditDevice() {
                   <td class="py-3 pr-4 text-slate-700 dark:text-slate-200">{{ formatNumber(row.value) }}</td>
                 </tr>
                 <tr v-if="!loadingTables.protos && (!protosTable || protosRowsTable.length === 0)">
-                  <td colspan="2" class="py-6 text-center text-sm text-slate-500 dark:text-slate-300">No data</td>
+                  <td colspan="2" class="py-6 text-center text-sm text-slate-500 dark:text-slate-300">Нет данных</td>
                 </tr>
               </tbody>
             </table>
@@ -532,12 +523,13 @@ async function saveEditDevice() {
         <div class="rounded-2xl border border-slate-200/70 bg-white/70 p-3 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-900/50">
           <div class="flex items-start justify-between gap-3 px-1 pb-2">
             <div>
-              <div class="text-sm font-semibold text-slate-900 dark:text-slate-50">Companies</div>
-              <div class="text-xs text-slate-500 dark:text-slate-300">Chart: per-company requests over time (from /charts/countries)</div>
+              <div class="text-sm font-semibold text-slate-900 dark:text-slate-50">Компании</div>
             </div>
+            <ViewSwitch v-model="companiesMode" :disabled="refreshing" @update:modelValue="onSwitch('companies', $event)" />
           </div>
 
           <LineChart
+            v-if="companiesMode === 'chart'"
             title=""
             subtitle=""
             xAxisName="time"
@@ -549,6 +541,27 @@ async function saveEditDevice() {
             :xMax="range.toMs"
             height="320px"
           />
+
+          <div v-else class="mt-2 h-80 overflow-auto">
+            <div v-if="loadingTables.companies" class="h-36 w-full animate-pulse rounded-xl bg-slate-200/60 dark:bg-slate-700/40" />
+            <table v-else class="min-w-full text-left text-sm">
+              <thead class="text-xs uppercase text-slate-500 dark:text-slate-300">
+                <tr>
+                  <th class="py-2 pr-4">Компания</th>
+                  <th class="py-2 pr-4">Запросы</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-200/70 dark:divide-slate-800">
+                <tr v-for="row in companiesRowsTable" :key="row.key" class="hover:bg-slate-50/80 dark:hover:bg-slate-800/30">
+                  <td class="py-3 pr-4 font-medium text-slate-900 dark:text-slate-50">{{ row.key }}</td>
+                  <td class="py-3 pr-4 text-slate-700 dark:text-slate-200">{{ formatNumber(row.value) }}</td>
+                </tr>
+                <tr v-if="!loadingTables.companies && (!companiesTable || companiesRowsTable.length === 0)">
+                  <td colspan="2" class="py-6 text-center text-sm text-slate-500 dark:text-slate-300">Нет данных</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
 
@@ -556,8 +569,7 @@ async function saveEditDevice() {
         <div class="rounded-2xl border border-slate-200/70 bg-white/70 p-3 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-900/50">
           <div class="flex items-start justify-between gap-3 px-1 pb-2">
             <div>
-              <div class="text-sm font-semibold text-slate-900 dark:text-slate-50">Traffic</div>
-              <div class="text-xs text-slate-500 dark:text-slate-300">Chart: time vs bytes from /charts; Table: totals from /tables</div>
+              <div class="text-sm font-semibold text-slate-900 dark:text-slate-50">Трафик</div>
             </div>
             <ViewSwitch v-model="trafficMode" :disabled="refreshing" @update:modelValue="onSwitch('traffic', $event)" />
           </div>
@@ -581,8 +593,8 @@ async function saveEditDevice() {
             <table v-else class="min-w-full text-left text-sm">
               <thead class="text-xs uppercase text-slate-500 dark:text-slate-300">
                 <tr>
-                  <th class="py-2 pr-4">Up</th>
-                  <th class="py-2 pr-4">Down</th>
+                  <th class="py-2 pr-4">Исходящий</th>
+                  <th class="py-2 pr-4">Входящий</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-200/70 dark:divide-slate-800">
@@ -591,7 +603,7 @@ async function saveEditDevice() {
                   <td class="py-3 pr-4 text-slate-700 dark:text-slate-200">{{ formatBytes(trafficTable.stats.down_bytes) }}</td>
                 </tr>
                 <tr v-if="!loadingTables.traffic && !trafficTable">
-                  <td colspan="2" class="py-6 text-center text-sm text-slate-500 dark:text-slate-300">No data</td>
+                  <td colspan="2" class="py-6 text-center text-sm text-slate-500 dark:text-slate-300">Нет данных</td>
                 </tr>
               </tbody>
             </table>

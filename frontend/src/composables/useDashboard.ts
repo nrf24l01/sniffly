@@ -5,7 +5,14 @@ import { useAuthStore } from '@/stores/auth'
 import { useRangeStore } from '@/stores/range'
 
 import { chartsService, type CountryChartResponse, type DomainChartResponse, type ProtoChartResponse, type TrafficChartResponse } from '@/service/charts'
-import { tablesService, type CountryTableResponse, type DomainTableResponse, type ProtoTableResponse, type TrafficTableResponse } from '@/service/tables'
+import {
+  tablesService,
+  type CompanyTableResponse,
+  type CountryTableResponse,
+  type DomainTableResponse,
+  type ProtoTableResponse,
+  type TrafficTableResponse
+} from '@/service/tables'
 import { devicesService, type DeviceListItem } from '@/service/devices'
 
 import type { RangeMode, RangePreset } from '@/types/range'
@@ -175,12 +182,13 @@ export function useDashboard() {
   const domainsMode = ref<WidgetMode>('chart')
   const countriesMode = ref<WidgetMode>('chart')
   const protosMode = ref<WidgetMode>('chart')
+  const companiesMode = ref<WidgetMode>('chart')
 
   let refreshSeq = 0
 
   // Loading / errors
   const loadingCharts = ref(false)
-  const loadingTables = ref<{ traffic?: boolean; domains?: boolean; countries?: boolean; protos?: boolean }>({})
+  const loadingTables = ref<{ traffic?: boolean; domains?: boolean; countries?: boolean; protos?: boolean; companies?: boolean }>({})
   const error = ref<string | null>(null)
 
   // Data
@@ -193,6 +201,7 @@ export function useDashboard() {
   const domainsTable = ref<DomainTableResponse | null>(null)
   const countriesTable = ref<CountryTableResponse | null>(null)
   const protosTable = ref<ProtoTableResponse | null>(null)
+  const companiesTable = ref<CompanyTableResponse | null>(null)
 
   async function loadDevices() {
     if (!auth.isAuthenticated) return
@@ -240,6 +249,7 @@ export function useDashboard() {
     domainsTable.value = null
     countriesTable.value = null
     protosTable.value = null
+    companiesTable.value = null
 
     try {
       const [traffic, domains, countries, protos] = await Promise.all([
@@ -261,11 +271,12 @@ export function useDashboard() {
   }
 
   async function refreshVisibleTables() {
-    const kinds: Array<'traffic' | 'domains' | 'countries' | 'protos'> = []
+    const kinds: Array<'traffic' | 'domains' | 'countries' | 'protos' | 'companies'> = []
     if (trafficMode.value === 'table') kinds.push('traffic')
     if (domainsMode.value === 'table') kinds.push('domains')
     if (countriesMode.value === 'table') kinds.push('countries')
     if (protosMode.value === 'table') kinds.push('protos')
+    if (companiesMode.value === 'table') kinds.push('companies')
 
     if (!kinds.length) return
 
@@ -279,7 +290,7 @@ export function useDashboard() {
     )
   }
 
-  async function ensureTable(kind: 'traffic' | 'domains' | 'countries' | 'protos') {
+  async function ensureTable(kind: 'traffic' | 'domains' | 'countries' | 'protos' | 'companies') {
     if (!auth.isAuthenticated) {
       router.replace({ name: 'Login' })
       return
@@ -290,6 +301,7 @@ export function useDashboard() {
     if (kind === 'domains' && domainsTable.value) return
     if (kind === 'countries' && countriesTable.value) return
     if (kind === 'protos' && protosTable.value) return
+    if (kind === 'companies' && companiesTable.value) return
 
     error.value = null
     loadingTables.value = { ...loadingTables.value, [kind]: true }
@@ -299,6 +311,7 @@ export function useDashboard() {
       if (kind === 'domains') domainsTable.value = await tablesService.domains(fromSeconds.value, toSeconds.value, selectedDeviceIdsNormalized.value)
       if (kind === 'countries') countriesTable.value = await tablesService.countries(fromSeconds.value, toSeconds.value, selectedDeviceIdsNormalized.value)
       if (kind === 'protos') protosTable.value = await tablesService.protos(fromSeconds.value, toSeconds.value, selectedDeviceIdsNormalized.value)
+      if (kind === 'companies') companiesTable.value = await tablesService.companies(fromSeconds.value, toSeconds.value, selectedDeviceIdsNormalized.value)
     } catch (e: any) {
       error.value = e?.response?.data?.message ?? e?.message ?? String(e)
       throw e
@@ -351,6 +364,7 @@ export function useDashboard() {
     domainsMode,
     countriesMode,
     protosMode,
+    companiesMode,
 
     // data
     trafficChart,
@@ -362,6 +376,7 @@ export function useDashboard() {
     domainsTable,
     countriesTable,
     protosTable,
+    companiesTable,
 
     // state
     loadingCharts,

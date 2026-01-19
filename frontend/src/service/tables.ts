@@ -21,6 +21,10 @@ export interface ProtoTableResponse {
   stats: Record<string, number>
 }
 
+export interface CompanyTableResponse {
+  stats: Record<string, number>
+}
+
 function buildParams(from: UnixSeconds, to: UnixSeconds, deviceIds?: string[]) {
   const params = new URLSearchParams()
   params.set('from', String(from))
@@ -49,6 +53,11 @@ export const tablesService = {
 
   async protos(from: UnixSeconds, to: UnixSeconds, deviceIds?: string[]) {
     const res = await api.get<ProtoTableResponse>('/tables/protos', { params: buildParams(from, to, deviceIds) })
+    return res.data
+  },
+
+  async companies(from: UnixSeconds, to: UnixSeconds, deviceIds?: string[]) {
+    const res = await api.get<CompanyTableResponse>('/tables/companies', { params: buildParams(from, to, deviceIds) })
     return res.data
   }
 }
