@@ -25,13 +25,13 @@ services:
       - .env
     environment:
       - APP_HOST=:8000
-      - PG_HOST=postgres
-      - PG_USER=postgres
-      - PG_PASSWORD=he1loT1ver
-      - PG_DATABASE=postgres
-      - PG_PORT=5432
-      - PG_SSLMODE=disable
-      - PG_TIMEZONE=Europe/Moscow
+      - POSTGRES_HOST=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=he1loT1ver
+      - POSTGRES_DB=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_SSLMODE=disable
+      - POSTGRES_TIMEZONE=Europe/Moscow
       - REDIS_HOST=redis:6379
       - REDIS_PASSWORD=
       - REDIS_DB=0
@@ -50,6 +50,7 @@ services:
     build:
       context: analyzer/
       dockerfile: Dockerfile
+    restart: unless-stopped
     env_file:
       - .env
     environment:
@@ -93,6 +94,7 @@ services:
       test: ["CMD", "/usr/local/bin/grpc_health_probe", "-addr=127.0.0.1:50051"]
       interval: 5s
       retries: 5
+    restart: unless-stopped
     environment:
       - PG_HOST=postgres
       - PG_USER=postgres
@@ -176,6 +178,7 @@ services:
       - "5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      - ./dump_snif.sql:/docker-entrypoint-initdb.d/dump_snif.sql:ro
     networks:
       - sniffly-net
     healthcheck:
@@ -210,8 +213,8 @@ services:
     networks:
       - sniffly-net
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "ping"]
-      interval: 30s
+      test: ["CMD-SHELL", "rabbitmq-diagnostics -q check_running && rabbitmq-diagnostics -q check_port_connectivity"]
+      interval: 5s
       timeout: 10s
       retries: 5
-      start_period: 5s
+      start_period: 10s
