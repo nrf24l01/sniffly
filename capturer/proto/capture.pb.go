@@ -75,9 +75,9 @@ func (BlockRuleTargetType) EnumDescriptor() ([]byte, []int) {
 
 type Packet struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	SourceId      string                 `protobuf:"bytes,1,opt,name=source_id,json=sourceId,proto3" json:"source_id,omitempty"` // Идентификатор клиента или сенсора
-	Payload       []byte                 `protobuf:"bytes,2,opt,name=payload,proto3" json:"payload,omitempty"`                   // Сырые данные пакета
-	Timestamp     int64                  `protobuf:"varint,3,opt,name=timestamp,proto3" json:"timestamp,omitempty"`              // Unix timestamp, когда пакет был создан
+	SourceId      string                 `protobuf:"bytes,1,opt,name=source_id,json=sourceId,proto3" json:"source_id,omitempty"`
+	Payload       []byte                 `protobuf:"bytes,2,opt,name=payload,proto3" json:"payload,omitempty"`
+	Timestamp     int64                  `protobuf:"varint,3,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -136,8 +136,8 @@ func (x *Packet) GetTimestamp() int64 {
 type PublishResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
-	MessageId     string                 `protobuf:"bytes,2,opt,name=message_id,json=messageId,proto3" json:"message_id,omitempty"` // ID сообщения в RabbitMQ (или сгенерированный UUID)
-	Error         string                 `protobuf:"bytes,3,opt,name=error,proto3" json:"error,omitempty"`                          // Текст ошибки, если success == false
+	MessageId     string                 `protobuf:"bytes,2,opt,name=message_id,json=messageId,proto3" json:"message_id,omitempty"`
+	Error         string                 `protobuf:"bytes,3,opt,name=error,proto3" json:"error,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -418,7 +418,7 @@ const file_capture_proto_rawDesc = "" +
 	"\rPacketGateway\x12L\n" +
 	"\rPublishPacket\x12\x18.capture_receiver.Packet\x1a!.capture_receiver.PublishResponse\x12P\n" +
 	"\rStreamPackets\x12\x18.capture_receiver.Packet\x1a!.capture_receiver.PublishResponse(\x010\x01\x12`\n" +
-	"\rGetBlockRules\x12&.capture_receiver.GetBlockRulesRequest\x1a'.capture_receiver.GetBlockRulesResponseB:Z8github.com/nrf24l01/sniffly/capture_receiver/proto;protob\x06proto3"
+	"\rGetBlockRules\x12&.capture_receiver.GetBlockRulesRequest\x1a'.capture_receiver.GetBlockRulesResponseB2Z0github.com/nrf24l01/sniffly/capturer/proto;protob\x06proto3"
 
 var (
 	file_capture_proto_rawDescOnce sync.Once

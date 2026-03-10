@@ -13,6 +13,7 @@ import (
 
 	"github.com/joho/godotenv"
 )
+
 func main() {
 	// Try to load .env file in non-production environment
 	if os.Getenv("PRODUCTION_ENV") != "true" {
@@ -34,7 +35,7 @@ func main() {
 	}
 
 	// Data sources initialization
-	db, err := pgKit.RegisterPostgres(config.PGConfig, false, &postgres.User{})
+	db, err := pgKit.RegisterPostgres(config.PGConfig, false, &postgres.User{}, &postgres.DeviceBlockRule{})
 	if err != nil {
 		log.Fatalf("failed to connect to postgres: %v", err)
 	}

@@ -15,7 +15,7 @@ func (h *Handler) LoginHandler(c echo.Context) error {
 	req := c.Get("validatedBody").(*schemas.LoginRequest)
 
 	var user postgres.User
-	
+
 	if err := h.DB.Select("id", "username", "password").Where("username = ?", req.Username).First(&user).Error; err != nil {
 		return c.JSON(http.StatusUnauthorized, echokitSchemas.DefaultUnauthorizedResponse)
 	}

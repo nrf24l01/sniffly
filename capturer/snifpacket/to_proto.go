@@ -3,7 +3,7 @@ package snifpacket
 import (
 	"encoding/json"
 
-	pb "github.com/nrf24l01/sniffly/capture_receiver/proto"
+	pb "github.com/nrf24l01/sniffly/capturer/proto"
 )
 
 func (sp *SnifPacket) ToProto() (*pb.Packet, error) {
@@ -11,10 +11,10 @@ func (sp *SnifPacket) ToProto() (*pb.Packet, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return &pb.Packet{
-		Timestamp:    sp.Timestamp,
-		Payload:      payload,
-		SourceId:     "capturer-go",
+		Timestamp: sp.Timestamp,
+		Payload:   payload,
+		SourceId:  "capturer-go",
 	}, nil
 }

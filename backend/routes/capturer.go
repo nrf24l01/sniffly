@@ -8,7 +8,6 @@ import (
 	echokitMW "github.com/nrf24l01/go-web-utils/echokit/middleware"
 )
 
-
 func RegisterCapturerRoutes(e *echo.Echo, h *handlers.Handler) {
 	group := e.Group("/capture")
 	group.Use(echokitMW.JWTMiddleware(*h.Config.JWTConfig))

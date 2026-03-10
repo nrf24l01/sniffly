@@ -12,8 +12,8 @@ func parseDNS(dns *layers.DNS, src, dst net.IP) *SnifPacketDetailsDNS {
 	if !dns.QR && dns.OpCode == layers.DNSOpCodeQuery {
 		for _, q := range dns.Questions {
 			return &SnifPacketDetailsDNS{
-				Queries:  []string{string(q.Name)},
-				IsQuery:  true,
+				Queries: []string{string(q.Name)},
+				IsQuery: true,
 			}
 		}
 	}

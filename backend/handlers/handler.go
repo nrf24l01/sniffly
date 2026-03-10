@@ -10,8 +10,8 @@ import (
 )
 
 type Handler struct {
-	DB *gorm.DB
-	Config *core.Config
-	RDB *redisutil.RedisClient
+	DB              *gorm.DB
+	Config          *core.Config
+	RDB             *redisutil.RedisClient
 	RandomGenerator *random.RandomGenerator
 }

@@ -23,11 +23,11 @@ func main() {
 
 	cfg := core.BuildConfigFromEnv()
 
-	db, err := pg_kit.RegisterPostgres(cfg.PGConfig, &postgres.Capturer{})
+	db, err := pg_kit.RegisterPostgres(cfg.PGConfig, &postgres.Capturer{}, &postgres.DeviceBlockRule{})
 	if err != nil {
 		log.Fatalf("Failed to connect to Postgres: %v", err)
 	}
-	
+
 	rmq, err := rabbitMQ.RegisterRabbitMQ(cfg.RabbitMQConfig)
 	if err != nil {
 		log.Fatalf("Failed to connect to RabbitMQ: %v", err)
@@ -39,9 +39,9 @@ func main() {
 	topic.CreateIfNotExists(rmq)
 
 	h := handler.PacketGatewayServer{
-		Config: cfg,
-		DB:     db,
-		RMQ:    rmq,
+		Config:   cfg,
+		DB:       db,
+		RMQ:      rmq,
 		RMQTopic: &topic,
 	}
 

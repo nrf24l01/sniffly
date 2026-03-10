@@ -8,7 +8,6 @@ import (
 	echokitMW "github.com/nrf24l01/go-web-utils/echokit/middleware"
 )
 
-
 func RegisterChartsRoutes(e *echo.Echo, h *handlers.Handler) {
 	group := e.Group("/charts")
 	group.Use(echokitMW.JWTMiddleware(*h.Config.JWTConfig))
@@ -29,4 +28,3 @@ func RegisterChartsRoutes(e *echo.Echo, h *handlers.Handler) {
 		return &schemas.ChartDataRangeRequest{}
 	}))
 }
-

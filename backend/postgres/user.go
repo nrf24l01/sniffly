@@ -33,7 +33,7 @@ func (u *User) CheckPassword(password string, config *utilsConfig.Argon2idConfig
 
 func (u *User) GenerateJWTpair(config *utilsConfig.JWTConfig) (string, string, error) {
 	access_claims := jwt.MapClaims{
-		"user_id": u.ID.String(),
+		"user_id":  u.ID.String(),
 		"username": u.Username,
 	}
 	refresh_claims := jwt.MapClaims{
@@ -45,7 +45,7 @@ func (u *User) GenerateJWTpair(config *utilsConfig.JWTConfig) (string, string, e
 
 func (u *User) GenerateAccessToken(config *utilsConfig.JWTConfig) (string, error) {
 	claims := jwt.MapClaims{
-		"user_id": u.ID.String(),
+		"user_id":  u.ID.String(),
 		"username": u.Username,
 	}
 	return auth.GenerateAccessToken(claims, config)

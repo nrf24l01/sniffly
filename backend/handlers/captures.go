@@ -88,8 +88,8 @@ func (h *Handler) GetCapturerHandler(c echo.Context) error {
 	return c.JSON(http.StatusOK, resp)
 }
 
-	func (h *Handler) UpdateCapturerHandler(c echo.Context) error {
-		uuid := c.Param("uuid")
+func (h *Handler) UpdateCapturerHandler(c echo.Context) error {
+	uuid := c.Param("uuid")
 
 	req := c.Get("validatedBody").(*schemas.CapturerUpdateRequest)
 	var capturer postgres.Capturer

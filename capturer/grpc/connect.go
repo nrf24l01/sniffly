@@ -3,8 +3,8 @@ package grpc
 import (
 	"time"
 
-	pb "github.com/nrf24l01/sniffly/capture_receiver/proto"
 	"github.com/nrf24l01/sniffly/capturer/core"
+	pb "github.com/nrf24l01/sniffly/capturer/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/keepalive"

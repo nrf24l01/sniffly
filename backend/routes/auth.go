@@ -15,4 +15,3 @@ func RegisterAuthRoutes(e *echo.Echo, h *handlers.Handler) {
 	}))
 	group.POST("/refresh", h.TokenRefreshHandler)
 }
-

@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	pb "github.com/nrf24l01/sniffly/capture_receiver/proto"
 	"github.com/nrf24l01/sniffly/capturer/core"
+	pb "github.com/nrf24l01/sniffly/capturer/proto"
 	"github.com/nrf24l01/sniffly/capturer/snifpacket"
 )
 
@@ -66,4 +66,12 @@ func StreamPackets(client pb.PacketGatewayClient, cfg *core.Config, packets chan
 
 		time.Sleep(500 * time.Millisecond)
 	}
+}
+
+func FetchBlockRules(ctx context.Context, client pb.PacketGatewayClient, cfg *core.Config) ([]*pb.BlockRule, error) {
+	resp, err := client.GetBlockRules(withAuth(ctx, cfg.ApiToken), &pb.GetBlockRulesRequest{})
+	if err != nil {
+		return nil, err
+	}
+	return resp.GetRules(), nil
 }

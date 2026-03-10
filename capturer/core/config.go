@@ -7,9 +7,11 @@ import (
 )
 
 type Config struct {
-	ServerAddress string `env:"SERVER_ADDRESS" envDefault:"localhost:50051"`
-	ApiToken 	  string `env:"API_TOKEN" envDefault:""`
-	Interface     string `env:"INTERFACE" envDefault:"eth0"`
+	ServerAddress                 string `env:"SERVER_ADDRESS" envDefault:"localhost:50051"`
+	ApiToken                      string `env:"API_TOKEN" envDefault:""`
+	Interface                     string `env:"INTERFACE" envDefault:"eth0"`
+	IptablesChain                 string `env:"IPTABLES_CHAIN" envDefault:"SNIFFLY_BLOCK"`
+	BlockRulesSyncIntervalSeconds int    `env:"BLOCK_RULES_SYNC_INTERVAL_SECONDS" envDefault:"30"`
 }
 
 func LoadConfigFromEnv() *Config {
