@@ -69,59 +69,60 @@ func deviceBlockRuleToSchema(row deviceBlockRuleRow) schemas.DeviceBlockRuleItem
 	}
 }
 
-func (h *Handler) getBlockRuleRow(device_id string, rule_id string) (*deviceBlockRuleRow, error) {
-	var row deviceBlockRuleRow
-	err := h.DB.Raw(`
-		SELECT
-			dbr.id,
-			dbr.device_id,
+func isIPv4String(ip string) bool {
+	parsed := net.ParseIP(strings.TrimSpace(ip))
+	return parsed != nil && parsed.To4() != nil
+}
+
+func (h *Handler) getIPv4DeviceByID(id string) (*analyzerModels.DeviceInfo, error) {
+	var device analyzerModels.DeviceInfo
+	if err := h.DB.Where("id = ?", id).First(&device).Error; err != nil {
+		return nil, err
+	}
+	if !isIPv4String(device.IP) {
+		return nil, gorm.ErrRecordNotFound
+	}
+	return &device, nil
+}
+
+func (h *Handler) deviceBlockRuleQuery() *gorm.DB {
+	return h.DB.Model(&backendModels.DeviceBlockRule{}).
+		Select(`
+			device_block_rules.id,
+			device_block_rules.device_id,
 			di.mac AS device_mac,
 			di.ip AS device_ip,
 			di.label AS device_label,
-			dbr.target_type,
-			dbr.target_value,
-			dbr.enabled,
-			dbr.created_at,
-			dbr.updated_at
-		FROM device_block_rules dbr
-		JOIN device_info di ON di.id = dbr.device_id
-		WHERE dbr.device_id = ? AND dbr.id = ?
-	`, device_id, rule_id).Scan(&row).Error
+			device_block_rules.target_type,
+			device_block_rules.target_value,
+			device_block_rules.enabled,
+			device_block_rules.created_at,
+			device_block_rules.updated_at
+		`).
+		Joins("JOIN device_info di ON di.id = device_block_rules.device_id AND di.deleted_at IS NULL AND di.ip NOT LIKE '%:%'").
+		Where("device_block_rules.deleted_at IS NULL")
+}
+
+func (h *Handler) getBlockRuleRow(device_id string, rule_id string) (*deviceBlockRuleRow, error) {
+	var row deviceBlockRuleRow
+	err := h.deviceBlockRuleQuery().
+		Where("device_block_rules.device_id = ? AND device_block_rules.id = ?", device_id, rule_id).
+		Take(&row).Error
 	if err != nil {
 		return nil, err
-	}
-	if row.ID == uuid.Nil {
-		return nil, gorm.ErrRecordNotFound
 	}
 
 	return &row, nil
 }
 
 func (h *Handler) listDeviceBlockRules(device_id *string) ([]schemas.DeviceBlockRuleItem, error) {
-	query := `
-		SELECT
-			dbr.id,
-			dbr.device_id,
-			di.mac AS device_mac,
-			di.ip AS device_ip,
-			di.label AS device_label,
-			dbr.target_type,
-			dbr.target_value,
-			dbr.enabled,
-			dbr.created_at,
-			dbr.updated_at
-		FROM device_block_rules dbr
-		JOIN device_info di ON di.id = dbr.device_id
-	`
-	args := make([]interface{}, 0, 1)
+	query := h.deviceBlockRuleQuery()
 	if device_id != nil {
-		query += " WHERE dbr.device_id = ?"
-		args = append(args, *device_id)
+		query = query.Where("device_block_rules.device_id = ?", *device_id)
 	}
-	query += " ORDER BY di.label ASC, di.mac ASC, dbr.created_at DESC"
 
 	rows := make([]deviceBlockRuleRow, 0)
-	if err := h.DB.Raw(query, args...).Scan(&rows).Error; err != nil {
+	if err := query.Order("di.label ASC, di.mac ASC, device_block_rules.created_at DESC").Find(&rows).Error; err != nil {
 		return nil, err
 	}
 
@@ -141,6 +142,9 @@ func (h *Handler) GetDevicesHandler(c echo.Context) error {
 
 	resp := make([]schemas.DeviceListItem, 0, len(devices))
 	for _, d := range devices {
+		if !isIPv4String(d.IP) {
+			continue
+		}
 		resp = append(resp, schemas.DeviceListItem{
 			UUID:      d.ID.String(),
 			MAC:       d.MAC,
@@ -156,8 +160,8 @@ func (h *Handler) UpdateDeviceLabelHandler(c echo.Context) error {
 	id := c.Param("id")
 	req := c.Get("validatedBody").(*schemas.UpdateDeviceLabelRequest)
 
-	var device analyzerModels.DeviceInfo
-	if err := h.DB.Where("id = ?", id).First(&device).Error; err != nil {
+	device, err := h.getIPv4DeviceByID(id)
+	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return c.JSON(http.StatusNotFound, echokitSchemas.ErrorResponse{Message: "Device not found", Code: http.StatusNotFound})
 		}
@@ -165,7 +169,7 @@ func (h *Handler) UpdateDeviceLabelHandler(c echo.Context) error {
 	}
 
 	device.Label = req.UserLabel
-	if err := h.DB.Save(&device).Error; err != nil {
+	if err := h.DB.Save(device).Error; err != nil {
 		return c.JSON(http.StatusInternalServerError, echokitSchemas.DefaultInternalErrorResponse)
 	}
 
@@ -191,8 +195,7 @@ func (h *Handler) ListDeviceBlockRulesHandler(c echo.Context) error {
 func (h *Handler) ListDeviceBlockRulesForDeviceHandler(c echo.Context) error {
 	device_id := c.Param("id")
 
-	var device analyzerModels.DeviceInfo
-	if err := h.DB.Where("id = ?", device_id).First(&device).Error; err != nil {
+	if _, err := h.getIPv4DeviceByID(device_id); err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return c.JSON(http.StatusNotFound, echokitSchemas.ErrorResponse{Message: "Device not found", Code: http.StatusNotFound})
 		}
@@ -211,8 +214,7 @@ func (h *Handler) CreateDeviceBlockRuleHandler(c echo.Context) error {
 	device_id := c.Param("id")
 	req := c.Get("validatedBody").(*schemas.CreateDeviceBlockRuleRequest)
 
-	var device analyzerModels.DeviceInfo
-	if err := h.DB.Where("id = ?", device_id).First(&device).Error; err != nil {
+	if _, err := h.getIPv4DeviceByID(device_id); err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return c.JSON(http.StatusNotFound, echokitSchemas.ErrorResponse{Message: "Device not found", Code: http.StatusNotFound})
 		}
@@ -256,8 +258,7 @@ func (h *Handler) UpdateDeviceBlockRuleHandler(c echo.Context) error {
 	rule_id := c.Param("rule_id")
 	req := c.Get("validatedBody").(*schemas.UpdateDeviceBlockRuleRequest)
 
-	var device analyzerModels.DeviceInfo
-	if err := h.DB.Where("id = ?", device_id).First(&device).Error; err != nil {
+	if _, err := h.getIPv4DeviceByID(device_id); err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return c.JSON(http.StatusNotFound, echokitSchemas.ErrorResponse{Message: "Device not found", Code: http.StatusNotFound})
 		}
@@ -310,20 +311,33 @@ func (h *Handler) DeleteDeviceBlockRuleHandler(c echo.Context) error {
 	device_id := c.Param("id")
 	rule_id := c.Param("rule_id")
 
-	var device analyzerModels.DeviceInfo
-	if err := h.DB.Where("id = ?", device_id).First(&device).Error; err != nil {
+	if _, err := h.getIPv4DeviceByID(device_id); err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return c.JSON(http.StatusNotFound, echokitSchemas.ErrorResponse{Message: "Device not found", Code: http.StatusNotFound})
 		}
 		return c.JSON(http.StatusInternalServerError, echokitSchemas.DefaultInternalErrorResponse)
 	}
 
-	result := h.DB.Where("id = ? AND device_id = ?", rule_id, device_id).Delete(&backendModels.DeviceBlockRule{})
-	if result.Error != nil {
+	var rule backendModels.DeviceBlockRule
+	if err := h.DB.Where("id = ? AND device_id = ?", rule_id, device_id).First(&rule).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return c.JSON(http.StatusNotFound, echokitSchemas.ErrorResponse{Message: "Block rule not found", Code: http.StatusNotFound})
+		}
 		return c.JSON(http.StatusInternalServerError, echokitSchemas.DefaultInternalErrorResponse)
 	}
-	if result.RowsAffected == 0 {
-		return c.JSON(http.StatusNotFound, echokitSchemas.ErrorResponse{Message: "Block rule not found", Code: http.StatusNotFound})
+
+	if err := h.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&rule).Update("enabled", false).Error; err != nil {
+			return err
+		}
+
+		if err := tx.Delete(&rule).Error; err != nil {
+			return err
+		}
+
+		return nil
+	}); err != nil {
+		return c.JSON(http.StatusInternalServerError, echokitSchemas.DefaultInternalErrorResponse)
 	}
 
 	return c.NoContent(http.StatusNoContent)

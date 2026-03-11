@@ -58,21 +58,22 @@ func (s *PacketGatewayServer) GetBlockRules(ctx context.Context, _ *pb.GetBlockR
 	}
 
 	rows := make([]row, 0)
-	if err := s.DB.Raw(`
-		SELECT
-			dbr.id,
-			dbr.device_id,
+	if err := s.DB.Model(&postgres.DeviceBlockRule{}).
+		Select(`
+			device_block_rules.id,
+			device_block_rules.device_id,
 			di.mac AS device_mac,
 			di.ip AS device_ip,
 			di.label AS device_label,
-			dbr.target_type,
-			dbr.target_value,
-			dbr.enabled
-		FROM device_block_rules dbr
-		JOIN device_info di ON di.id = dbr.device_id
-		WHERE dbr.enabled = TRUE
-		ORDER BY di.label ASC, di.mac ASC, dbr.created_at ASC
-	`).Scan(&rows).Error; err != nil {
+			device_block_rules.target_type,
+			device_block_rules.target_value,
+			device_block_rules.enabled
+		`).
+		Joins("JOIN device_info di ON di.id = device_block_rules.device_id AND di.deleted_at IS NULL").
+		Where("device_block_rules.deleted_at IS NULL").
+		Where("device_block_rules.enabled = ?", true).
+		Order("di.label ASC, di.mac ASC, device_block_rules.created_at ASC").
+		Find(&rows).Error; err != nil {
 		return nil, fmt.Errorf("failed to load block rules: %w", err)
 	}
 

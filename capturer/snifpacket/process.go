@@ -17,21 +17,14 @@ func ProcessPacket(packet gopacket.Packet) (*SnifPacket, error) {
 
 	// IP
 	ipv4Layer := packet.Layer(layers.LayerTypeIPv4)
-	ipv6Layer := packet.Layer(layers.LayerTypeIPv6)
-
-	var srcIP, dstIP net.IP
-
-	if ipv4Layer != nil {
-		ip := ipv4Layer.(*layers.IPv4)
-		srcIP = ip.SrcIP
-		dstIP = ip.DstIP
-	} else if ipv6Layer != nil {
-		ip := ipv6Layer.(*layers.IPv6)
-		srcIP = ip.SrcIP
-		dstIP = ip.DstIP
-	} else {
-		return nil, fmt.Errorf("no IP layer found")
+	if ipv4Layer == nil {
+		return nil, fmt.Errorf("no IPv4 layer found")
 	}
+
+	ip := ipv4Layer.(*layers.IPv4)
+	var srcIP, dstIP net.IP
+	srcIP = ip.SrcIP
+	dstIP = ip.DstIP
 
 	snif_packet := &SnifPacket{
 		SrcIP:     srcIP.String(),

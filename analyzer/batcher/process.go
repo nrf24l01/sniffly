@@ -2,11 +2,19 @@ package batcher
 
 import (
 	"context"
+	"net"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/nrf24l01/sniffly/analyzer/postgres"
 	"github.com/nrf24l01/sniffly/capturer/snifpacket"
+	"gorm.io/gorm"
 )
+
+func isIPv4Address(ip string) bool {
+	parsed := net.ParseIP(ip)
+	return parsed != nil && parsed.To4() != nil
+}
 
 func (b *Batcher) Process(ctx context.Context, batch Batch) error {
 	// Grouping packets by device MAC
@@ -17,30 +25,39 @@ func (b *Batcher) Process(ctx context.Context, batch Batch) error {
 
 	// Retrieving or creating device IDs
 	per_device_mac_device_id := make(map[string]uuid.UUID)
-	for device_id, _ := range per_device_mac {
-		rows, err := b.PGDB.Raw("SELECT id FROM device_info WHERE mac = ?", device_id).Rows()
+	for deviceMAC, packets := range per_device_mac {
+		ipv4 := ""
+		for _, packet := range packets {
+			if isIPv4Address(packet.SrcIP) {
+				ipv4 = packet.SrcIP
+				break
+			}
+		}
+		if ipv4 == "" {
+			continue
+		}
+
+		var device postgres.DeviceInfo
+		err := b.PGDB.Where("mac = ?", deviceMAC).First(&device).Error
 		if err != nil {
-			return err
-		}
-		var found_device_id uuid.UUID
-		if rows.Next() {
-			if err = rows.Scan(&found_device_id); err != nil {
-				rows.Close()
+			if err != gorm.ErrRecordNotFound {
 				return err
 			}
-			per_device_mac_device_id[device_id] = found_device_id
-			rows.Close()
-		} else {
-			rows.Close()
-			// insert and return generated id in a single query
-			if err := b.PGDB.Raw(
-				"INSERT INTO device_info (mac, ip) VALUES (?, ?) RETURNING id",
-				device_id, per_device_mac[device_id][0].SrcIP,
-			).Row().Scan(&found_device_id); err != nil {
+
+			device = postgres.DeviceInfo{
+				MAC: deviceMAC,
+				IP:  ipv4,
+			}
+			if err := b.PGDB.Create(&device).Error; err != nil {
 				return err
 			}
-			per_device_mac_device_id[device_id] = found_device_id
+		} else if !isIPv4Address(device.IP) {
+			if err := b.PGDB.Model(&device).Update("ip", ipv4).Error; err != nil {
+				return err
+			}
 		}
+
+		per_device_mac_device_id[deviceMAC] = device.ID
 	}
 
 	// Grouping packets by device ID

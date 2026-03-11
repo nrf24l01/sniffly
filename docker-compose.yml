@@ -202,7 +202,7 @@ services:
       start_period: 5s
 
   rabbitmq:
-    image: rabbitmq:3-management
+    image: rabbitmq:4-alpine
     restart: unless-stopped
     expose:
       - "5672"
