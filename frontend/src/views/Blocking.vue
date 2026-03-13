@@ -138,15 +138,12 @@ onMounted(() => {
 </script>
 
 <template>
-  <main class="min-h-full overflow-auto bg-[radial-gradient(circle_at_top_left,_rgba(21,128,61,0.14),_transparent_32%),linear-gradient(180deg,_#f7fee7_0%,_#ffffff_46%,_#f8fafc_100%)] dark:bg-[radial-gradient(circle_at_top_left,_rgba(34,197,94,0.14),_transparent_24%),linear-gradient(180deg,_#020617_0%,_#0f172a_48%,_#111827_100%)]">
+  <main class="min-h-full overflow-auto bg-slate-50 dark:bg-slate-900">
     <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
       <header class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p class="text-xs font-semibold uppercase tracking-[0.24em] text-green-700 dark:text-green-300">Traffic control</p>
           <h1 class="mt-2 text-3xl font-semibold tracking-tight text-slate-900 dark:text-slate-50">Блокировка трафика устройств</h1>
-          <p class="mt-2 max-w-3xl text-sm text-slate-600 dark:text-slate-300">
-            Правила применяются в модуле захвата через отдельную chain в iptables. Для IP и подсетей используется destination match, для SNI/Host — payload string match на портах 80/443.
-          </p>
         </div>
 
         <button
@@ -260,7 +257,6 @@ onMounted(() => {
             <div class="flex items-center justify-between gap-3">
               <div>
                 <div class="text-sm font-semibold text-slate-900 dark:text-slate-50">Текущие правила</div>
-                <div class="mt-1 text-xs text-slate-500 dark:text-slate-300">Изменение switch вызывает PATCH на backend, удаление мгновенно убирает правило из базы и следующей синхронизации iptables.</div>
               </div>
             </div>
 

@@ -112,9 +112,9 @@ const auth = useAuthStore()
 const router = useRouter()
 
 const navLinks = [
-  { name: 'Home', routeName: 'Home' },
-  { name: 'Blocking', routeName: 'Blocking' },
-  { name: 'Capturers', routeName: 'Capturers' },
+  { name: 'Дашборд', routeName: 'Home' },
+  { name: 'Блокировка', routeName: 'Blocking' },
+  { name: 'Захватчики трафика', routeName: 'Capturers' },
 ]
 
 function logout() {
